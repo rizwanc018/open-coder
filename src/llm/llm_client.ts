@@ -1,5 +1,6 @@
 import { OpenRouter } from "@openrouter/sdk";
 import type { ChatMessages, ChatRequest } from "@openrouter/sdk/models";
+import type { StreamEvent, TokenUsage } from "./types";
 
 export class LLMClient {
     private client: OpenRouter | null = null;
@@ -13,7 +14,10 @@ export class LLMClient {
         this.client = null;
     }
 
-    async chatCompletion(messages: Array<ChatMessages>, stream: boolean = true) {
+    async *chatCompletion(
+        messages: Array<ChatMessages>,
+        stream: boolean = true,
+    ): AsyncGenerator<StreamEvent, void, unknown> {
         const client = this.get_client();
         const args: ChatRequest = {
             model: process.env.LLM_MODEL,
@@ -22,19 +26,67 @@ export class LLMClient {
         };
 
         if (stream) {
-            return this.stream_response();
+            yield* this.stream_response(client, args);
         } else {
-            return this.non_stream_response(client, args);
+            const event = await this.non_stream_response(client, args);
+            yield event;
+            return;
         }
     }
 
-    async stream_response() {}
+    async *stream_response(
+        client: OpenRouter,
+        args: ChatRequest,
+    ): AsyncGenerator<StreamEvent, void, unknown> {
+        const response = await client.chat.send({ chatRequest: { ...args, stream: true } });
 
-    async non_stream_response(client: OpenRouter, args: ChatRequest) {
-        const response = await client.chat.send({
-            chatRequest: { ...args, stream: false },
-        });
-        return response;
-        // return response.choices[0]?.message.content ?? "";
+        let finish_reason: string | null = null;
+        let usage: TokenUsage | null = null;
+
+        for await (const chunk of response) {
+            const choice = chunk.choices[0];
+
+            const content = choice?.delta?.content;
+            if (content) {
+                yield { type: "text_delta", text_delta: content, finish_reason: null, usage: null };
+            }
+
+            if (choice?.finishReason) finish_reason = choice.finishReason;
+
+            if (chunk.usage) {
+                usage = {
+                    promptTokens: chunk.usage.promptTokens,
+                    completionTokens: chunk.usage.completionTokens,
+                    totalTokens: chunk.usage.totalTokens,
+                    cachedTokens: chunk.usage.promptTokensDetails?.cachedTokens || 0,
+                };
+            }
+        }
+
+        yield { type: "message_complete", text_delta: null, finish_reason, usage };
+    }
+
+    async non_stream_response(client: OpenRouter, args: ChatRequest): Promise<StreamEvent> {
+        const response = await client.chat.send({ chatRequest: { ...args, stream: false } });
+
+        const choice = response.choices[0];
+        const message = choice?.message;
+
+        let usage: TokenUsage | null = null;
+        let text_delta = message?.content ? message.content : null;
+        let finish_reason: string | null = choice?.finishReason ? choice?.finishReason : null;
+
+        if (message?.content) text_delta = message.content;
+
+        if (response.usage) {
+            usage = {
+                promptTokens: response.usage.promptTokens,
+                completionTokens: response.usage.completionTokens,
+                totalTokens: response.usage.totalTokens,
+                cachedTokens: response.usage.promptTokensDetails?.cachedTokens || 0,
+            };
+        }
+
+        return { type: "message_complete", text_delta, finish_reason, usage };
     }
 }
