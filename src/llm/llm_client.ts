@@ -1,4 +1,5 @@
 import { OpenRouter } from "@openrouter/sdk";
+import { OpenRouterError, TooManyRequestsResponseError } from "@openrouter/sdk/models/errors";
 import type { ChatMessages, ChatRequest } from "@openrouter/sdk/models";
 import type { StreamEvent, TokenUsage } from "./types";
 
@@ -24,17 +25,19 @@ export class LLMClient {
             messages,
             stream,
         };
-
-        if (stream) {
-            yield* this.stream_response(client, args);
-        } else {
-            const event = await this.non_stream_response(client, args);
-            yield event;
+        try {
+            if (stream) {
+                yield* this.stream_response(client, args);
+            } else {
+                yield await this.non_stream_response(client, args);
+            }
             return;
+        } catch (error) {
+            yield this.to_error_event(error);
         }
     }
 
-    async *stream_response(
+    private async *stream_response(
         client: OpenRouter,
         args: ChatRequest,
     ): AsyncGenerator<StreamEvent, void, unknown> {
@@ -66,7 +69,7 @@ export class LLMClient {
         yield { type: "message_complete", text_delta: null, finish_reason, usage };
     }
 
-    async non_stream_response(client: OpenRouter, args: ChatRequest): Promise<StreamEvent> {
+    private async non_stream_response(client: OpenRouter, args: ChatRequest): Promise<StreamEvent> {
         const response = await client.chat.send({ chatRequest: { ...args, stream: false } });
 
         const choice = response.choices[0];
@@ -88,5 +91,21 @@ export class LLMClient {
         }
 
         return { type: "message_complete", text_delta, finish_reason, usage };
+    }
+
+    private to_error_event(error: unknown): StreamEvent {
+        let message: string;
+
+        if (error instanceof TooManyRequestsResponseError) {
+            message = `Rate limit exceeded: ${error.error.message}`;
+        } else if (error instanceof OpenRouterError) {
+            message = `API error (${error.statusCode}): ${error.message}`;
+        } else if (error instanceof Error) {
+            message = error.message;
+        } else {
+            message = String(error);
+        }
+
+        return { type: "error", text_delta: null, error: message, finish_reason: null, usage: null };
     }
 }
