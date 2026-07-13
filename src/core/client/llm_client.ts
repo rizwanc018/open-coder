@@ -38,7 +38,7 @@ export class LLMClient {
             } catch (error) {
                 if (this._shouldRetry(error) && attempt < this._maxRetries) {
                     const waitMs = 1000 * 2 ** (attempt - 1);
-                    sleep(waitMs);
+                    await sleep(waitMs);
                     continue;
                 }
                 yield this._to_error_event(error);

@@ -1,4 +1,4 @@
-import { LLMClient } from "./llm/llm_client";
+import { LLMClient } from "./core/client/llm_client";
 
 console.log("Starting ...");
 
@@ -8,9 +8,6 @@ const run = async () => {
     for await (const event of client.chat_completion(messages, false)) {
         console.log(JSON.stringify(event, null, 2));
     }
-
-
-
     console.log("DONE.");
 };
 
