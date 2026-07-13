@@ -2,42 +2,52 @@ import { OpenRouter } from "@openrouter/sdk";
 import { OpenRouterError, TooManyRequestsResponseError } from "@openrouter/sdk/models/errors";
 import type { ChatMessages, ChatRequest } from "@openrouter/sdk/models";
 import type { StreamEvent, TokenUsage } from "./types";
+import { sleep } from "bun";
 
 export class LLMClient {
-    private client: OpenRouter | null = null;
+    private _client: OpenRouter | null = null;
+    private readonly _maxRetries = 3;
 
-    private get_client(): OpenRouter {
-        this.client ??= new OpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
-        return this.client;
+    private _getClient(): OpenRouter {
+        this._client ??= new OpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
+        return this._client;
     }
 
     close(): void {
-        this.client = null;
+        this._client = null;
     }
 
-    async *chatCompletion(
+    async *chat_completion(
         messages: Array<ChatMessages>,
         stream: boolean = true,
     ): AsyncGenerator<StreamEvent, void, unknown> {
-        const client = this.get_client();
+        const client = this._getClient();
         const args: ChatRequest = {
             model: process.env.LLM_MODEL,
             messages,
             stream,
         };
-        try {
-            if (stream) {
-                yield* this.stream_response(client, args);
-            } else {
-                yield await this.non_stream_response(client, args);
+        for (let attempt = 1; attempt <= this._maxRetries; attempt++) {
+            try {
+                if (stream) {
+                    yield* this._stream_response(client, args);
+                } else {
+                    yield await this._non_stream_response(client, args);
+                }
+                return;
+            } catch (error) {
+                if (this._shouldRetry(error) && attempt < this._maxRetries) {
+                    const waitMs = 1000 * 2 ** (attempt - 1);
+                    sleep(waitMs);
+                    continue;
+                }
+                yield this._to_error_event(error);
+                return;
             }
-            return;
-        } catch (error) {
-            yield this.to_error_event(error);
         }
     }
 
-    private async *stream_response(
+    private async *_stream_response(
         client: OpenRouter,
         args: ChatRequest,
     ): AsyncGenerator<StreamEvent, void, unknown> {
@@ -69,8 +79,11 @@ export class LLMClient {
         yield { type: "message_complete", text_delta: null, finish_reason, usage };
     }
 
-    private async non_stream_response(client: OpenRouter, args: ChatRequest): Promise<StreamEvent> {
-        const response = await client.chat.send({ chatRequest: { ...args, stream: false } });
+    private async _non_stream_response(client: OpenRouter, args: ChatRequest): Promise<StreamEvent> {
+        const response = await client.chat.send(
+            { chatRequest: { ...args, stream: false } },
+            { fetchOptions: { signal: AbortSignal.timeout(60_000) } },
+        );
 
         const choice = response.choices[0];
         const message = choice?.message;
@@ -93,9 +106,8 @@ export class LLMClient {
         return { type: "message_complete", text_delta, finish_reason, usage };
     }
 
-    private to_error_event(error: unknown): StreamEvent {
+    private _to_error_event(error: unknown): StreamEvent {
         let message: string;
-
         if (error instanceof TooManyRequestsResponseError) {
             message = `Rate limit exceeded: ${error.error.message}`;
         } else if (error instanceof OpenRouterError) {
@@ -107,5 +119,18 @@ export class LLMClient {
         }
 
         return { type: "error", text_delta: null, error: message, finish_reason: null, usage: null };
+    }
+
+    private _shouldRetry(error: unknown): boolean {
+        if (error instanceof TooManyRequestsResponseError) {
+            return true;
+        }
+        if (error instanceof OpenRouterError && error.statusCode && error.statusCode >= 500) {
+            return true;
+        }
+        // if (error instanceof Error && error.name === "AbortError") {
+        //     return false;
+        // }
+        return false;
     }
 }

@@ -5,9 +5,11 @@ console.log("Starting ...");
 const run = async () => {
     const client = new LLMClient();
     const messages = [{ role: "user" as const, content: "how are you" }];
-    for await (const event of client.chatCompletion(messages, false)) {
+    for await (const event of client.chat_completion(messages, false)) {
         console.log(JSON.stringify(event, null, 2));
     }
+
+
 
     console.log("DONE.");
 };
