@@ -5,7 +5,6 @@ import { MessageList } from "./components/MessageList";
 import { Inputbar } from "./components/Inputbar";
 
 function App() {
-
     return (
         <box
             alignItems="center"
@@ -17,7 +16,7 @@ function App() {
             paddingLeft={0}
         >
             <MessageList />
-            <Inputbar />
+            <Inputbar onSubmit={() => {}} disabled={false} />
         </box>
     );
 }
