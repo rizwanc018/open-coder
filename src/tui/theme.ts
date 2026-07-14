@@ -31,4 +31,27 @@ export const theme = {
     removed: "#f7768e",
 } as const;
 
-export const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+export const spinnerFrames = ["⠹", "⢸", "⣰", "⣤", "⣆", "⡇", "⠏", "⠛"];
+
+export const thinkingWords = [
+    "Thinking",
+    "Pondering",
+    "Ruminating",
+    "Cogitating",
+    "Percolating",
+    "Marinating",
+    "Simmering",
+    "Brewing",
+    "Conjuring",
+    "Noodling",
+    "Musing",
+    "Mulling",
+    "Vibing",
+    "Wrangling",
+    "Tinkering",
+    "Puttering",
+    "Scheming",
+    "Hatching",
+    "Forging",
+    "Crunching",
+];

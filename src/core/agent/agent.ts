@@ -53,7 +53,7 @@ export class Agent {
         let final_response: string | null = null;
         let usage: TokenUsage | null = null;
 
-        for await (const event of this._agentic_loop(message)) {
+        for await (const event of this._agentic_loop(message, signal)) {
             yield event;
 
             if (event.type === "text_complete") {
