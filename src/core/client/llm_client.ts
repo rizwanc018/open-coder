@@ -61,7 +61,7 @@ export class LLMClient {
 
             const content = choice?.delta?.content;
             if (content) {
-                yield { type: "text_delta", text_delta: content, finish_reason: null, usage: null };
+                yield { type: "text_delta", text_delta: content };
             }
 
             if (choice?.finishReason) finish_reason = choice.finishReason;
@@ -118,7 +118,7 @@ export class LLMClient {
             message = String(error);
         }
 
-        return { type: "error", text_delta: null, error: message, finish_reason: null, usage: null };
+        return { type: "error", error: message };
     }
 
     private _shouldRetry(error: unknown): boolean {

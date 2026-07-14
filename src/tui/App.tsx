@@ -62,8 +62,7 @@ function App() {
             position="relative"
             width="100%"
             height="100%"
-            padding={1}
-            paddingLeft={0}
+            paddingTop={1}
         >
             <MessageList messages={messages} />
             <Inputbar onSubmit={handleSubmit} disabled={isRunning} />

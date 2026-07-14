@@ -11,18 +11,12 @@ export interface ToolCall {
     arguments: Record<string, unknown>;
 }
 
-export type StreamEventType =
-    | "text_delta"
-    | "tool_call_start"
-    | "tool_call_delta"
-    | "tool_call_complete"
-    | "message_complete"
-    | "error";
+export type StreamEvent =
+    | { type: "text_delta"; text_delta: string }
+    | { type: "tool_call_start"; toolCall: ToolCall }
+    | { type: "tool_call_delta"; callId: string; argumentsDelta: string }
+    | { type: "tool_call_complete"; toolCall: ToolCall }
+    | { type: "message_complete"; text_delta: string | null; finish_reason: string | null; usage: TokenUsage | null }
+    | { type: "error"; error: string };
 
-export interface StreamEvent {
-    type: StreamEventType;
-    text_delta: string | null;
-    error?: string | null;
-    finish_reason: string | null;
-    usage: TokenUsage | null;
-}
+export type StreamEventType = StreamEvent["type"];

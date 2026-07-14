@@ -25,7 +25,7 @@ export function MessageList({ messages }: MessageListProps) {
                         </text>
                     ) : (
                         <text fg={message.error ? theme.error : message.content ? theme.assistant : theme.muted}>
-                            {message.content || "..."}
+                            {`❮ ${message.content || "..."}`}
                         </text>
                     )}
                 </box>
