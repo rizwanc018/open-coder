@@ -2,9 +2,11 @@ import type { ChatMessages } from "@openrouter/sdk/models";
 import { LLMClient } from "../client/llm_client";
 import type { TokenUsage } from "../client/types";
 import type { AgentEvent } from "./types";
+import { ContextManager } from "../context/manager";
 
 export class Agent {
     private _client: LLMClient | null = new LLMClient();
+    private _contextManager: ContextManager = new ContextManager();
 
     private _getClient(): LLMClient {
         if (!this._client) throw new Error("Agent is closed");
@@ -15,7 +17,7 @@ export class Agent {
         let responseText = "";
         let usage: TokenUsage | null = null;
 
-        const messages = [{ role: "user" as const, content: message }];
+        const messages = this._contextManager.getMessages();
 
         for await (const event of this._getClient().chat_completion(messages, true)) {
             if (signal?.aborted) return;
@@ -46,6 +48,7 @@ export class Agent {
 
     async *run(message: string, signal?: AbortSignal): AsyncGenerator<AgentEvent> {
         yield { type: "agent_start", message };
+        this._contextManager.addUserMessage(message);
 
         let final_response: string | null = null;
         let usage: TokenUsage | null = null;
@@ -56,6 +59,10 @@ export class Agent {
             if (event.type === "text_complete") {
                 final_response = event.content;
                 usage = event.usage;
+
+                if (final_response) {
+                    this._contextManager.addAssistantMessage(final_response);
+                }
             }
         }
 

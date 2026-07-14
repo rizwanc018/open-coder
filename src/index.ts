@@ -1,5 +1,5 @@
 import { Agent } from "./core/agent/agent";
-import { LLMClient } from "./core/client/llm_client";
+
 
 console.log("Starting ...");
 
@@ -19,6 +19,7 @@ const run = async () => {
         console.log("idx",JSON.stringify(event, null, 2));
     }
     console.log("DONE.");
+    
 };
 
 run();
