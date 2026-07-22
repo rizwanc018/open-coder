@@ -3,10 +3,17 @@ import { OpenRouterError, TooManyRequestsResponseError } from "@openrouter/sdk/m
 import type { ChatMessages, ChatRequest } from "@openrouter/sdk/models";
 import type { StreamEvent, TokenUsage } from "./types";
 import { sleep } from "bun";
+import type { ToolSchema } from "../tools/types";
+import { parseToolCallArguments } from "../utils/tool";
 
+interface CompletionOptions {
+    tools?: ToolSchema[];
+    stream?: boolean;
+    signal?: AbortSignal;
+}
 export class LLMClient {
     private _client: OpenRouter | null = null;
-    private readonly _maxRetries = 3;
+    private readonly _MAX_RETRIES = 3;
 
     private _getClient(): OpenRouter {
         this._client ??= new OpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
@@ -19,15 +26,29 @@ export class LLMClient {
 
     async *chat_completion(
         messages: Array<ChatMessages>,
-        stream: boolean = true,
+        options: CompletionOptions = {},
     ): AsyncGenerator<StreamEvent, void, unknown> {
+        const { tools, stream = true, signal } = options;
+
         const client = this._getClient();
         const args: ChatRequest = {
             model: process.env.LLM_MODEL,
             messages,
             stream,
         };
-        for (let attempt = 1; attempt <= this._maxRetries; attempt++) {
+
+        if (tools && tools.length > 0) {
+            args.tools = tools.map((tool) => ({
+                type: "function",
+                function: {
+                    name: tool.name,
+                    description: tool.description,
+                    parameters: tool.parameters,
+                },
+            }));
+            args.toolChoice = "auto";
+        }
+        for (let attempt = 1; attempt <= this._MAX_RETRIES; attempt++) {
             try {
                 if (stream) {
                     yield* this._stream_response(client, args);
@@ -36,7 +57,7 @@ export class LLMClient {
                 }
                 return;
             } catch (error) {
-                if (this._shouldRetry(error) && attempt < this._maxRetries) {
+                if (this._shouldRetry(error) && attempt < this._MAX_RETRIES) {
                     const waitMs = 1000 * 2 ** (attempt - 1);
                     await sleep(waitMs);
                     continue;
@@ -55,13 +76,46 @@ export class LLMClient {
 
         let finish_reason: string | null = null;
         let usage: TokenUsage | null = null;
+        const pending = new Map<number, { id: string; name: string; args: string }>();
 
         for await (const chunk of response) {
             const choice = chunk.choices[0];
 
-            const content = choice?.delta?.content;
+            if (!choice) continue;
+
+            const content = choice.delta?.content;
             if (content) {
                 yield { type: "text_delta", text_delta: content };
+            }
+
+            const toolCallsdelta = choice.delta.toolCalls;
+
+            for (const tcDelta of toolCallsdelta ?? []) {
+                const index = tcDelta.index;
+                let entry = pending.get(index);
+
+                if (!entry) {
+                    entry = { id: tcDelta.id ?? "", name: "", args: "" };
+                    pending.set(index, entry);
+                }
+                if (tcDelta.id) entry.id = tcDelta.id;
+                if (tcDelta.function?.name) {
+                    entry.name = tcDelta.function.name;
+                    yield {
+                        type: "tool_call_start",
+                        callId: entry.id,
+                        name: entry.name,
+                        arguments: {},
+                    };
+                }
+                if (tcDelta.function?.arguments) {
+                    entry.args += tcDelta.function.arguments;
+                    yield {
+                        type: "tool_call_delta",
+                        callId: entry.id,
+                        argumentsDelta: tcDelta.function.arguments,
+                    };
+                }
             }
 
             if (choice?.finishReason) finish_reason = choice.finishReason;
@@ -74,6 +128,15 @@ export class LLMClient {
                     cachedTokens: chunk.usage.promptTokensDetails?.cachedTokens || 0,
                 };
             }
+        }
+
+        for (const entry of pending.values()) {
+            yield {
+                type: "tool_call_complete",
+                callId: entry.id,
+                name: entry.name,
+                arguments: parseToolCallArguments(entry.args),
+            };
         }
 
         yield { type: "message_complete", text_delta: null, finish_reason, usage };

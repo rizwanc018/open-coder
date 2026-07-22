@@ -1,7 +1,8 @@
-import  z from "zod";
+import z from "zod";
 
 export const TOOL_KINDS = ["read", "write", "shell", "network", "memory", "mcp"] as const;
 export type ToolKind = (typeof TOOL_KINDS)[number];
+
 
 export interface ToolContext {
     cwd: string;
@@ -13,6 +14,7 @@ export interface ToolResult {
     output: string;
     error?: string;
     metadata?: Record<string, unknown>;
+    truncated?: boolean;
 }
 
 export interface ToolSchema {
@@ -26,6 +28,8 @@ export interface ToolConfirmation {
     description: string;
     params: Record<string, unknown>;
 }
+
+type ResultExtras = Omit<ToolResult, "success" | "output" | "error">;
 
 export interface Tool<S extends z.ZodType = z.ZodType> {
     name: string;
@@ -47,6 +51,10 @@ export interface Tool<S extends z.ZodType = z.ZodType> {
 
 export type AnyTool = Tool<z.ZodType>;
 
+export function defineTool<S extends z.ZodType>(tool: Tool<S>): Tool<S> {
+    return tool;
+}
+
 export const isMutating = (tool: AnyTool, params: Record<string, unknown>): boolean => {
     if (tool.isMutating) return tool.isMutating(params);
     return tool.kind !== "read";
@@ -67,7 +75,16 @@ export const getConfirmation = async (
     };
 };
 
-export function toToolSchema(tool: AnyTool): ToolSchema {
+export const ok = (output: string, extras: ResultExtras = {}): ToolResult => {
+    return { success: true, output, ...extras };
+};
+
+export const err = (error: string, extras: ResultExtras & { output?: string } = {}): ToolResult => {
+    const { output = "", ...rest } = extras;
+    return { success: false, output, error, ...rest };
+};
+
+export const toToolSchema = (tool: Tool): ToolSchema => {
     const parameters =
         tool.jsonSchema ??
         (z.toJSONSchema(tool.schema, { target: "draft-7", io: "input" }) as Record<string, unknown>);
@@ -83,4 +100,4 @@ export function toToolSchema(tool: AnyTool): ToolSchema {
             required: parameters.required ?? [],
         },
     };
-}
+};
