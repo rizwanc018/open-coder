@@ -24,81 +24,90 @@ export class Agent {
         return this._client;
     }
 
-    private async *_agentic_loop(message: string, signal?: AbortSignal): AsyncGenerator<AgentEvent> {
-        let responseText = "";
-        let usage: TokenUsage | null = null;
-        const toolCalls: ToolCall[] = [];
-        let errored: boolean = false;
-
+    private async *_agentic_loop(signal?: AbortSignal): AsyncGenerator<AgentEvent> {
         const toolSchemas = this._toolRegistry.getSchemas();
+        const maxIterations = 25;
 
-        const messages = this._contextManager.getMessages();
+        for (let iteration = 0; iteration < maxIterations; iteration++) {
+            let responseText = "";
+            let usage: TokenUsage | null = null;
+            const toolCalls: ToolCall[] = [];
+            let errored: boolean = false;
 
-        for await (const event of this._getClient().chat_completion(messages, {
-            tools: toolSchemas,
-            stream: true,
-        })) {
-            if (signal?.aborted) return;
+            const messages = this._contextManager.getMessages();
 
-            switch (event.type) {
-                case "text_delta":
-                    if (event.text_delta) {
-                        responseText += event.text_delta;
-                        yield { type: "text_delta", content: event.text_delta };
-                    }
-                    break;
+            for await (const event of this._getClient().chat_completion(messages, {
+                tools: toolSchemas,
+                stream: true,
+            })) {
+                if (signal?.aborted) return;
 
-                case "tool_call_complete":
-                    toolCalls.push({ name: event.name, callId: event.callId, arguments: event.arguments });
-                    break;
+                switch (event.type) {
+                    case "text_delta":
+                        if (event.text_delta) {
+                            responseText += event.text_delta;
+                            yield { type: "text_delta", content: event.text_delta };
+                        }
+                        break;
 
-                case "message_complete":
-                    usage = event.usage;
-                    break;
+                    case "tool_call_complete":
+                        toolCalls.push({ name: event.name, callId: event.callId, arguments: event.arguments });
+                        break;
 
-                case "error":
-                    errored = true;
-                    yield { type: "agent_error", error: event.error ?? "Unknown error occured" };
-                    return;
+                    case "message_complete":
+                        usage = event.usage;
+                        break;
 
-                default:
-                    break;
+                    case "error":
+                        errored = true;
+                        yield { type: "agent_error", error: event.error ?? "Unknown error occured" };
+                        return;
+
+                    default:
+                        break;
+                }
             }
-        }
 
-        if (errored) return;
+            if (errored) return;
 
+            this._contextManager.addAssistantMessage(responseText, toolCalls);
 
+            if (responseText) {
+                yield { type: "text_complete", content: responseText, usage };
+            }
 
-        if (responseText) {
-            yield { type: "text_complete", content: responseText, usage };
-        }
+            if (toolCalls.length === 0) {
+                return;
+            }
 
-        if (toolCalls.length === 0) {
-            return;
-        }
+            for (const tc of toolCalls) {
+                if (signal?.aborted) return;
+                yield {
+                    type: "tool_call_start",
+                    callId: tc.callId,
+                    name: tc.name,
+                    arguments: tc.arguments,
+                };
 
-        for (const call of toolCalls) {
-            if (signal?.aborted) return;
-            yield {
-                type: "tool_call_start",
-                callId: call.callId,
-                name: call.name,
-                arguments: call.arguments,
-            };
+                const result = await this._toolRegistry.invoke(tc.name, tc.arguments, {
+                    cwd: this._cwd,
+                    signal,
+                });
 
-            const result = await this._toolRegistry.invoke(call.name, call.arguments, {
-                cwd: this._cwd,
-                signal,
-            });
+                const resultContent = result.success
+                    ? result.output
+                    : (result.error ?? result.output ?? "");
 
-            yield {
-                type: "tool_call_complete",
-                callId: call.callId,
-                name: call.name,
-                arguments: call.arguments,
-                result,
-            };
+                this._contextManager.addToolResult(tc.callId, resultContent);
+
+                yield {
+                    type: "tool_call_complete",
+                    callId: tc.callId,
+                    name: tc.name,
+                    arguments: tc.arguments,
+                    result,
+                };
+            }
         }
     }
 
@@ -110,16 +119,12 @@ export class Agent {
         let usage: TokenUsage | null = null;
 
         try {
-            for await (const event of this._agentic_loop(message, signal)) {
+            for await (const event of this._agentic_loop(signal)) {
                 yield event;
 
                 if (event.type === "text_complete") {
                     final_response = event.content;
                     usage = event.usage;
-
-                    if (final_response) {
-                        this._contextManager.addAssistantMessage(final_response);
-                    }
                 }
             }
         } catch (error) {
