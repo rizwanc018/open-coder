@@ -26,9 +26,7 @@ export class Agent {
 
     private async *_agentic_loop(signal?: AbortSignal): AsyncGenerator<AgentEvent> {
         const toolSchemas = this._toolRegistry.getSchemas();
-        const maxIterations = 25;
-
-        for (let iteration = 0; iteration < maxIterations; iteration++) {
+        while (true) {
             let responseText = "";
             let usage: TokenUsage | null = null;
             const toolCalls: ToolCall[] = [];
@@ -51,7 +49,11 @@ export class Agent {
                         break;
 
                     case "tool_call_complete":
-                        toolCalls.push({ name: event.name, callId: event.callId, arguments: event.arguments });
+                        toolCalls.push({
+                            name: event.name,
+                            callId: event.callId,
+                            arguments: event.arguments,
+                        });
                         break;
 
                     case "message_complete":
@@ -94,9 +96,7 @@ export class Agent {
                     signal,
                 });
 
-                const resultContent = result.success
-                    ? result.output
-                    : (result.error ?? result.output ?? "");
+                const resultContent = result.success ? result.output : (result.error ?? result.output ?? "");
 
                 this._contextManager.addToolResult(tc.callId, resultContent);
 
@@ -128,11 +128,7 @@ export class Agent {
                 }
             }
         } catch (error) {
-            if (signal?.aborted) {
-                yield { type: "agent_error", error: "Interrupted" };
-            } else {
                 yield { type: "agent_error", error: errorMessage(error) };
-            }
         }
 
         yield { type: "agent_end", final_response, usage };

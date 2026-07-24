@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run --watch src/tui/App.tsx"
+    "dev": "bun run --watch src/tui/App.tsx",
+    "test": "bun test"
   },
   "devDependencies": {
     "@types/bun": "latest",

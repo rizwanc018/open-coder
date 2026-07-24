@@ -7,11 +7,11 @@ import { useAgent } from "./hooks/useAgent";
 function App() {
     const { messages, isWorking, sendMessage } = useAgent();
 
+
     return (
         <box alignItems="center" flexGrow={1} position="relative" width="100%" height="100%" paddingTop={1}>
             <MessageList messages={messages} isWorking={isWorking} />
             <Inputbar onSubmit={sendMessage} disabled={isWorking} />
-            
         </box>
     );
 }

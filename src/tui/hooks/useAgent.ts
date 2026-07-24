@@ -1,14 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Agent } from "../../core/agent/agent";
+import type { ToolResult } from "../../core/tools/types";
+import { debug } from "../../utils/debug";
 
-export type UIMessage = {
+export type TextMessage = {
     id: number;
     role: "user" | "assistant";
     content: string;
     error?: boolean;
 };
 
+export type ToolMessage = {
+    id: number;
+    role: "tool";
+    callId: string;
+    name: string;
+    arguments: Record<string, unknown>;
+    status: "running" | "success" | "error";
+    resultPreview?: string;
+};
+
+export type UIMessage = TextMessage | ToolMessage;
+
 let nextId = 0;
+
+const toResultPreview = (result: ToolResult): string => {
+    const text = result.success ? result.output : (result.error ?? result.output);
+    return text.trim();
+};
 
 export function useAgent() {
     const agentRef = useRef<Agent | null>(null);
@@ -30,53 +49,111 @@ export function useAgent() {
         };
     }, []);
 
-    const sendMessage = useCallback(async (text: string) => {
-        if (isWorking) return;
+    const sendMessage = useCallback(
+        async (text: string) => {
+            if (isWorking) return;
 
-        const abort = new AbortController();
-        abortRef.current = abort;
-        setIsWorking(true);
+            const abort = new AbortController();
+            abortRef.current = abort;
+            setIsWorking(true);
 
-        const assistantId = ++nextId;
-        setMessages((prev) => [
-            ...prev,
-            { id: ++nextId, role: "user", content: text },
-            { id: assistantId, role: "assistant", content: "" },
-        ]);
+            const userId = ++nextId;
+            const firstAssistantId = ++nextId;
+            // Each loop iteration gets its own assistant bubble; null means the next
+            // text_delta should open a fresh one.
+            let assistantId: number | null = firstAssistantId;
 
-        try {
-            for await (const event of getAgent().run(text, abort.signal)) {
-                switch (event.type) {
-                    case "text_delta":
-                        setMessages((prev) =>
-                            prev.map((m) =>
-                                m.id === assistantId ? { ...m, content: m.content + event.content } : m,
-                            ),
-                        );
-                        break;
+            setMessages((prev) => [
+                ...prev,
+                { id: userId, role: "user", content: text },
+                { id: firstAssistantId, role: "assistant", content: "" },
+            ]);
 
-                    case "agent_error":
-                        setMessages((prev) =>
-                            prev.map((m) =>
-                                m.id === assistantId ? { ...m, content: event.error, error: true } : m,
-                            ),
-                        );
-                        break;
+            const appendErrorMessage = (content: string) => {
+                const id = ++nextId;
+                assistantId = null;
+                setMessages((prev) => [...prev, { id, role: "assistant", content, error: true }]);
+            };
 
-                    default:
-                        break;
+            try {
+                for await (const event of getAgent().run(text, abort.signal)) {
+                    debug("event.type:", event.type);
+
+                    switch (event.type) {
+                        case "text_delta": {
+                            if (assistantId === null) {
+                                const id = ++nextId;
+                                assistantId = id;
+                                setMessages((prev) => [
+                                    ...prev,
+                                    { id, role: "assistant", content: event.content },
+                                ]);
+                            } else {
+                                const id = assistantId;
+                                setMessages((prev) =>
+                                    prev.map((m) =>
+                                        m.id === id && m.role === "assistant"
+                                            ? { ...m, content: m.content + event.content }
+                                            : m,
+                                    ),
+                                );
+                            }
+                            break;
+                        }
+
+                        case "tool_call_start": {
+                            const id = ++nextId;
+                            assistantId = null;
+                            setMessages((prev) => [
+                                ...prev,
+                                {
+                                    id,
+                                    role: "tool",
+                                    callId: event.callId,
+                                    name: event.name,
+                                    arguments: event.arguments,
+                                    status: "running",
+                                },
+                            ]);
+                            break;
+                        }
+
+                        case "tool_call_complete": {
+                            debug(event);
+                            setMessages((prev) =>
+                                prev.map((m) =>
+                                    m.role === "tool" && m.callId === event.callId
+                                        ? {
+                                              ...m,
+                                              status: event.result.success ? "success" : "error",
+                                              resultPreview: toResultPreview(event.result),
+                                          }
+                                        : m,
+                                ),
+                            );
+                            break;
+                        }
+
+                        case "agent_error":
+                            appendErrorMessage(event.error);
+                            break;
+
+                        default:
+                            break;
+                    }
                 }
+            } catch (err) {
+                appendErrorMessage(err instanceof Error ? err.message : "Something went wrong");
+            } finally {
+                // Drop assistant bubbles that never received text (e.g. a turn that
+                // produced only tool calls).
+                setMessages((prev) => prev.filter((m) => !(m.role === "assistant" && m.content === "")));
+                abortRef.current = null;
+                setIsWorking(false);
             }
-        } catch (err) {
-            const message = err instanceof Error ? err.message : "Something went wrong";
-            setMessages((prev) =>
-                prev.map((m) => (m.id === assistantId ? { ...m, content: message, error: true } : m)),
-            );
-        } finally {
-            abortRef.current = null;
-            setIsWorking(false);
-        }
-    }, [isWorking]);
+        },
+        [isWorking],
+    );
 
     const cancel = useCallback(() => {
         abortRef.current?.abort();
