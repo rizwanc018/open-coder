@@ -87,7 +87,7 @@ export const readFileTool = defineTool({
             }
 
             if (startIdx > 0 || endIdx < totalLines) {
-                output = `Showing lines ${startIdx + 1}-${endIdx} of ${totalLines}\n\n${output}`;
+                output = `Reading lines ${startIdx + 1}-${endIdx} of ${totalLines}\n\n${output}`;
             }
 
             return ok(output, {

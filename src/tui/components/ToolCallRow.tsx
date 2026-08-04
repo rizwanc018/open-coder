@@ -19,16 +19,14 @@ const formatArguments = (args: Record<string, unknown>): string => {
     return text.length > MAX_ARGS_LENGTH ? `${text.slice(0, MAX_ARGS_LENGTH)}…` : text;
 };
 
-// read_file bakes "     N|<code>" prefixes into every content line and a
-// "Showing lines X-Y of Z" header for partial reads. Recover the range so we
-// can report "Read 1-24 of 24 lines" instead of dumping the file content.
 const readSummary = (preview: string): string | null => {
     const lineNumbers: number[] = [];
     let total: number | null = null;
 
     for (const line of preview.split("\n")) {
-        const showing = line.match(/^Showing lines \d+-\d+ of (\d+)/);
+        const showing = line.match(/^Reading lines \d+-\d+ of (\d+)/);
         if (showing) {
+            debug("Showing : ", showing)
             total = Number(showing[1]);
             continue;
         }
@@ -40,7 +38,7 @@ const readSummary = (preview: string): string | null => {
 
     const first = lineNumbers[0];
     const last = lineNumbers[lineNumbers.length - 1];
-    return `Read ${first}-${last} of ${total ?? last} lines`;
+    return `Reading lines ${first}-${last} of ${total ?? last} lines`;
 };
 
 type ToolCallRowProps = {

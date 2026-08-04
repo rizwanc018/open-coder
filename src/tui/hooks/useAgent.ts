@@ -77,7 +77,7 @@ export function useAgent() {
 
             try {
                 for await (const event of getAgent().run(text, abort.signal)) {
-                    debug("event.type:", event.type);
+                    // debug("event.type:", event.type);
 
                     switch (event.type) {
                         case "text_delta": {
@@ -119,7 +119,7 @@ export function useAgent() {
                         }
 
                         case "tool_call_complete": {
-                            debug(event);
+                            // debug(event);
                             setMessages((prev) =>
                                 prev.map((m) =>
                                     m.role === "tool" && m.callId === event.callId
