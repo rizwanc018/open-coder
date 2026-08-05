@@ -1,14 +1,19 @@
 import { statSync } from "node:fs";
 import z from "zod";
 
-const modelConfigSchema = z.object({
-    name: z.string().default("nvidia/nemotron-3-super-120b-a12b:free"),
-    temperature: z.number().min(0).max(2).default(1),
-    contextWindow: z.number().int().positive().default(500_000),
-});
+const MISSING_MODEL = "Missing model name. Set `model.name` in your config file.";
+
+const modelConfigSchema = z.object(
+    {
+        name: z.string(MISSING_MODEL).min(1, MISSING_MODEL),
+        temperature: z.number().min(0).max(2).default(1),
+        contextWindow: z.number().int().positive().default(500_000),
+    },
+    MISSING_MODEL,
+);
 
 export const configSchema = z.object({
-    model: modelConfigSchema.prefault({}),
+    model: modelConfigSchema,
     cwd: z.string().default(() => process.cwd()),
     maxTurns: z.number().int().positive().default(150),
     developerInstructions: z.string().nullable().default(null),

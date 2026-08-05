@@ -1,0 +1,10 @@
+{
+    "model": {
+        "name": "nvidia/nemotron-3-super-120b-a12b:free",
+        "temperature": 1,
+        "contextWindow": 500000
+    },
+    "maxTurns": 150,
+    "userInstructions": null,
+    "debug": false
+}

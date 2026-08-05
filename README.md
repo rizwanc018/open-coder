@@ -19,8 +19,62 @@ Create a `.env` in the project root:
 
 ```bash
 OPENROUTER_API_KEY=sk-or-...
-LLM_MODEL=anthropic/claude-sonnet-4.5   # any model slug OpenRouter supports
 ```
+
+For now API KEY is read from .env
+
+## Configuration
+
+Settings come from a JSON file  `config.json`, loaded by [`loadConfig()`](src/core/config/configLoader.ts) from two places:
+
+| Scope | Location | Purpose |
+| --- | --- | --- |
+| System | `~/.config/open-coder/config.json` on linux,  `~/Library/Application Support/open-coder/` on macOS, `%LOCALAPPDATA%\open-coder\` on Windows  | Your defaults across every project |
+| Project | `<project>/.open-coder/config.json` | Per-repo overrides |
+
+Only one is needed. When both exist they are deep-merged, with the project file winning key by key. 
+An unparseable file is skipped with a warning rather than being fatal, but a file that parses and then fails validation aborts startup with the offending key (e.g. `model.temperature: Too big`).
+
+### Example
+
+Create the project config:
+
+
+`.open-coder/config.json`:
+
+```json
+{
+    "model": {
+        "name": "anthropic/claude-sonnet-4.5",
+        "temperature": 1,
+        "contextWindow": 500000
+    },
+    "maxTurns": 150,
+    "userInstructions": null,
+    "debug": false
+}
+```
+
+`model.name` is the only required field — any model slug [OpenRouter](https://openrouter.ai/models) supports. The smallest valid config is:
+
+```json
+{ "model": { "name": "anthropic/claude-sonnet-4.5" } }
+```
+
+### Options
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `model.name` | string | — | **Required.** OpenRouter model slug. |
+| `model.temperature` | number (0–2) | `1` | Sampling temperature. |
+| `model.contextWindow` | positive int | `500000` | Token budget the context manager works against. |
+| `cwd` | string | current directory | Working directory the agent operates in. Must exist. |
+| `maxTurns` | positive int | `150` | Cap on iterations of the agentic loop per run. |
+| `developerInstructions` | string \| null | contents of `AGENT.md` | System-level instructions. Auto-filled from an `AGENT.md` in the working directory if present. |
+| `userInstructions` | string \| null | `null` | Extra instructions appended on the user's behalf. |
+| `debug` | boolean | `false` | Enables debug behaviour. |
+
+Anything you omit falls back to its default, so you only need to write the keys you want to change.
 
 ## Running
 
@@ -50,28 +104,6 @@ Inputbar ─► useAgent ─► Agent ─► LLMClient ─► OpenRouter
 Throughout, the agent yields `AgentEvent`s ([src/core/agent/types.ts](src/core/agent/types.ts)) — `text_delta`, `tool_call_start`, `tool_call_complete`, `agent_error`, and so on. The [`useAgent`](src/tui/hooks/useAgent.ts) hook consumes that stream and translates it into UI messages, so text renders token-by-token and tool rows flip from running to success/error in place.
 
 Requests carry an `AbortSignal`, so an in-flight turn can be cancelled. `LLMClient` retries rate limits and 5xx responses with exponential backoff (3 attempts).
-
-## Project layout
-
-```
-src/
-├── core/
-│   ├── agent/         # agentic loop, event types
-│   ├── client/        # OpenRouter streaming client, retry + error mapping
-│   ├── context/       # conversation history, per-message token counts
-│   ├── prompts/       # system prompt sections
-│   ├── tools/
-│   │   ├── built-in/  # tool implementations
-│   │   ├── registry.ts
-│   │   └── types.ts   # Tool interface, ToolResult, ok()/err() helpers
-│   └── utils/         # path, file, text/token, error helpers
-├── tui/
-│   ├── App.tsx        # entry point — creates the renderer
-│   ├── components/    # MessageList, Inputbar, ToolCallRow, Header, Spinner
-│   ├── hooks/         # useAgent — bridges agent events to React state
-│   └── theme.ts
-└── utils/debug.ts     # debug logging to a second terminal
-```
 
 ## Tools
 
