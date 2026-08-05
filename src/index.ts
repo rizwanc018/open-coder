@@ -1,5 +1,6 @@
 import { Agent } from "./core/agent/agent";
-import { LLMClient } from "./core/client/llm_client";
+import { loadConfig } from "./core/config/configLoader";
+import { validateConfig } from "./core/config/config";
 
 console.log("Starting ...");
 
@@ -13,7 +14,15 @@ console.log("Starting ...");
 // };
 
 const run = async () => {
-    const client = new Agent();
+    const config = loadConfig();
+
+    const errors = validateConfig(config);
+    if (errors.length > 0) {
+        console.error(errors.map((error) => `- ${error}`).join("\n"));
+        process.exit(1);
+    }
+
+    const client = new Agent(config);
     for await (const event of client.run("read src/index.ts")) {
         console.log(JSON.stringify(event, null, 2));
     }

@@ -1,12 +1,30 @@
+import type { Config } from "../config/config";
 
-export function getSystemPrompt(): string {
+export function getSystemPrompt(config: Config): string {
     const sections = [identitySection()];
 
     sections.push(agentsMdSection(), securitySection());
 
     sections.push(operationalSection());
 
+    sections.push(environmentSection(config));
+
+    if (config.developerInstructions?.trim()) {
+        sections.push(`# Project Instructions (AGENT.md)\n\n${config.developerInstructions.trim()}`);
+    }
+
+    if (config.userInstructions?.trim()) {
+        sections.push(`# User Instructions\n\n${config.userInstructions.trim()}`);
+    }
+
     return sections.join("\n\n");
+}
+
+function environmentSection(config: Config): string {
+    return `# Environment
+
+- Working directory: ${config.cwd}
+- Platform: ${process.platform}`;
 }
 
 function identitySection(): string {

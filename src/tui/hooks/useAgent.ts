@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Agent } from "../../core/agent/agent";
+import type { Config } from "../../core/config/config";
 import type { ToolResult } from "../../core/tools/types";
 import { debug } from "../../utils/debug";
 
@@ -29,7 +30,7 @@ const toResultPreview = (result: ToolResult): string => {
     return text.trim();
 };
 
-export function useAgent() {
+export function useAgent(config: Config) {
     const agentRef = useRef<Agent | null>(null);
     const abortRef = useRef<AbortController | null>(null);
 
@@ -37,7 +38,7 @@ export function useAgent() {
     const [isWorking, setIsWorking] = useState(false);
 
     const getAgent = (): Agent => {
-        if (!agentRef.current) agentRef.current = new Agent();
+        if (!agentRef.current) agentRef.current = new Agent(config);
         return agentRef.current;
     };
 

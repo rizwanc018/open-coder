@@ -3,10 +3,17 @@ import { countTokens } from "../utils/text";
 import type { MessageItem } from "./types";
 import type { ToolCall } from "../agent/types";
 import type { ChatMessages, ChatToolCall } from "@openrouter/sdk/models";
+import type { Config } from "../config/config";
 
 export class ContextManager {
-    private readonly _systemPrompt: string = getSystemPrompt();
+    private readonly _config: Config;
+    private readonly _systemPrompt: string;
     private _messages: MessageItem[] = [];
+
+    constructor(config: Config) {
+        this._config = config;
+        this._systemPrompt = getSystemPrompt(config);
+    }
 
     addUserMessage(content: string): void {
         this._messages.push({
@@ -41,6 +48,14 @@ export class ContextManager {
             message: { role: "tool", content, toolCallId: callId },
             tokenCount: countTokens(content),
         });
+    }
+
+    getTokenCount(): number {
+        return this._messages.reduce((total, item) => total + item.tokenCount, countTokens(this._systemPrompt));
+    }
+
+    isOverContextWindow(): boolean {
+        return this.getTokenCount() >= this._config.model.contextWindow;
     }
 
     getMessages(): ChatMessages[] {

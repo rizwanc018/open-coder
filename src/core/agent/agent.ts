@@ -4,16 +4,20 @@ import type { AgentEvent, ToolCall } from "./types";
 import { ContextManager } from "../context/manager";
 import { createToolDefaultRegistry, ToolRegistry } from "../tools/registry";
 import { errorMessage } from "../utils/error";
+import type { Config } from "../config/config";
 
 export class Agent {
     private _client: LLMClient | null;
     private _toolRegistry: ToolRegistry;
-    private _contextManager: ContextManager = new ContextManager();
+    private _contextManager: ContextManager;
+    private _config: Config;
     private _cwd: string;
 
-    constructor() {
-        this._client = new LLMClient();
-        this._cwd = process.cwd();
+    constructor(config: Config) {
+        this._config = config;
+        this._client = new LLMClient(config);
+        this._contextManager = new ContextManager(config);
+        this._cwd = config.cwd;
 
         const { toolRegistry } = createToolDefaultRegistry();
         this._toolRegistry = toolRegistry;
@@ -26,7 +30,7 @@ export class Agent {
 
     private async *_agentic_loop(signal?: AbortSignal): AsyncGenerator<AgentEvent> {
         const toolSchemas = this._toolRegistry.getSchemas();
-        while (true) {
+        for (let turn = 0; turn < this._config.maxTurns; turn++) {
             let responseText = "";
             let usage: TokenUsage | null = null;
             const toolCalls: ToolCall[] = [];
@@ -109,6 +113,11 @@ export class Agent {
                 };
             }
         }
+
+        yield {
+            type: "agent_error",
+            error: `Reached the maximum of ${this._config.maxTurns} turns without finishing.`,
+        };
     }
 
     async *run(message: string, signal?: AbortSignal): AsyncGenerator<AgentEvent> {

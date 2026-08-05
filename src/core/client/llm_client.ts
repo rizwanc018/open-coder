@@ -5,6 +5,7 @@ import type { StreamEvent, TokenUsage } from "./types";
 import { sleep } from "bun";
 import type { ToolSchema } from "../tools/types";
 import { parseToolCallArguments } from "../utils/tool";
+import { apiKey, type Config } from "../config/config";
 
 interface CompletionOptions {
     tools?: ToolSchema[];
@@ -14,9 +15,14 @@ interface CompletionOptions {
 export class LLMClient {
     private _client: OpenRouter | null = null;
     private readonly _MAX_RETRIES = 3;
+    private readonly _config: Config;
+
+    constructor(config: Config) {
+        this._config = config;
+    }
 
     private _getClient(): OpenRouter {
-        this._client ??= new OpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
+        this._client ??= new OpenRouter({ apiKey: apiKey() });
         return this._client;
     }
 
@@ -32,7 +38,8 @@ export class LLMClient {
 
         const client = this._getClient();
         const args: ChatRequest = {
-            model: process.env.LLM_MODEL,
+            model: this._config.model.name,
+            temperature: this._config.model.temperature,
             messages,
             stream,
         };
