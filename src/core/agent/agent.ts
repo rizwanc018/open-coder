@@ -1,43 +1,40 @@
 import { LLMClient } from "../client/llm_client";
 import type { TokenUsage } from "../client/types";
 import type { AgentEvent, ToolCall } from "./types";
-import { ContextManager } from "../context/manager";
-import { createToolDefaultRegistry, ToolRegistry } from "../tools/registry";
 import { errorMessage } from "../utils/error";
 import type { Config } from "../config/config";
+import { Session } from "./session";
 
 export class Agent {
-    private _client: LLMClient | null;
-    private _toolRegistry: ToolRegistry;
-    private _contextManager: ContextManager;
-    private _config: Config;
-    private _cwd: string;
+    session: Session;
+    _closed = false;
 
     constructor(config: Config) {
-        this._config = config;
-        this._client = new LLMClient(config);
-        this._contextManager = new ContextManager(config);
-        this._cwd = config.cwd;
-
-        const { toolRegistry } = createToolDefaultRegistry();
-        this._toolRegistry = toolRegistry;
+        this.session = new Session(config);
     }
 
     private _getClient(): LLMClient {
-        if (!this._client) throw new Error("Agent is closed");
-        return this._client;
+        if (!this.session?._client) throw new Error("Agent is closed");
+        return this.session._client;
+    }
+
+    private _assertOpen(): void {
+        if (this._closed) throw new Error("Agent is closed");
     }
 
     private async *_agentic_loop(signal?: AbortSignal): AsyncGenerator<AgentEvent> {
-        const toolSchemas = this._toolRegistry.getSchemas();
-        for (let turn = 0; turn < this._config.maxTurns; turn++) {
+        this._assertOpen();
+
+        const toolSchemas = this.session._toolRegistry.getSchemas();
+        for (let turn = 0; turn < this.session._config.maxTurns; turn++) {
             let responseText = "";
             let usage: TokenUsage | null = null;
             const toolCalls: ToolCall[] = [];
             let errored: boolean = false;
 
-            const messages = this._contextManager.getMessages();
-
+            const messages = this.session._contextManager.getMessages();
+            this.session.incrementTurn()
+            
             for await (const event of this._getClient().chat_completion(messages, {
                 tools: toolSchemas,
                 stream: true,
@@ -76,7 +73,7 @@ export class Agent {
 
             if (errored) return;
 
-            this._contextManager.addAssistantMessage(responseText, toolCalls);
+            this.session._contextManager.addAssistantMessage(responseText, toolCalls);
 
             if (responseText) {
                 yield { type: "text_complete", content: responseText, usage };
@@ -95,14 +92,14 @@ export class Agent {
                     arguments: tc.arguments,
                 };
 
-                const result = await this._toolRegistry.invoke(tc.name, tc.arguments, {
-                    cwd: this._cwd,
+                const result = await this.session._toolRegistry.invoke(tc.name, tc.arguments, {
+                    cwd: this.session._config.cwd,
                     signal,
                 });
 
                 const resultContent = result.success ? result.output : (result.error ?? result.output ?? "");
 
-                this._contextManager.addToolResult(tc.callId, resultContent);
+                this.session._contextManager.addToolResult(tc.callId, resultContent);
 
                 yield {
                     type: "tool_call_complete",
@@ -116,13 +113,13 @@ export class Agent {
 
         yield {
             type: "agent_error",
-            error: `Reached the maximum of ${this._config.maxTurns} turns without finishing.`,
+            error: `Reached the maximum of ${this.session._config.maxTurns} turns without finishing.`,
         };
     }
 
     async *run(message: string, signal?: AbortSignal): AsyncGenerator<AgentEvent> {
         yield { type: "agent_start", message };
-        this._contextManager.addUserMessage(message);
+        this.session._contextManager.addUserMessage(message);
 
         let final_response: string | null = null;
         let usage: TokenUsage | null = null;
@@ -137,14 +134,15 @@ export class Agent {
                 }
             }
         } catch (error) {
-                yield { type: "agent_error", error: errorMessage(error) };
+            yield { type: "agent_error", error: errorMessage(error) };
         }
 
         yield { type: "agent_end", final_response, usage };
     }
 
     close(): void {
-        if (this._client) this._client.close();
-        this._client = null;
+        if (this._closed || !this.session._client) return;
+        this.session._client.close();
+        this._closed = true;
     }
 }
