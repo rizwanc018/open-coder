@@ -1,8 +1,18 @@
 import z from "zod";
+import type { FileDiff } from "../utils/diff";
 
-export const TOOL_KINDS = ["read", "write", "shell", "network", "memory", "mcp"] as const;
-export type ToolKind = (typeof TOOL_KINDS)[number];
+export const TOOL_KIND = {
+    Read: "read",
+    Write: "write",
+    Shell: "shell",
+    Network: "network",
+    Memory: "memory",
+    Mcp: "mcp",
+} as const;
 
+export type ToolKind = (typeof TOOL_KIND)[keyof typeof TOOL_KIND];
+
+export const TOOL_KINDS = Object.values(TOOL_KIND);
 
 export interface ToolContext {
     cwd: string;
@@ -15,6 +25,7 @@ export interface ToolResult {
     error?: string;
     metadata?: Record<string, unknown>;
     truncated?: boolean;
+    diff?: FileDiff;
 }
 
 export interface ToolSchema {
@@ -57,7 +68,7 @@ export function defineTool<S extends z.ZodType>(tool: Tool<S>): Tool<S> {
 
 export const isMutating = (tool: AnyTool, params: Record<string, unknown>): boolean => {
     if (tool.isMutating) return tool.isMutating(params);
-    return tool.kind !== "read";
+    return tool.kind !== TOOL_KIND.Read;
 };
 
 export const getConfirmation = async (

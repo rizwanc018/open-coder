@@ -6,6 +6,7 @@ import { sleep } from "bun";
 import type { ToolSchema } from "../tools/types";
 import { parseToolCallArguments } from "../utils/tool";
 import { apiKey, type Config } from "../config/config";
+import { debug } from "../../utils/debug";
 
 interface CompletionOptions {
     tools?: ToolSchema[];
@@ -87,7 +88,6 @@ export class LLMClient {
 
         for await (const chunk of response) {
             const choice = chunk.choices[0];
-
             if (!choice) continue;
 
             const content = choice.delta?.content;
@@ -96,6 +96,7 @@ export class LLMClient {
             }
 
             const toolCallsdelta = choice.delta.toolCalls;
+            debug(toolCallsdelta)
 
             for (const tcDelta of toolCallsdelta ?? []) {
                 const index = tcDelta.index;
