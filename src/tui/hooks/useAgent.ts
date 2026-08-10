@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Agent } from "../../core/agent/agent";
 import type { Config } from "../../core/config/config";
 import type { ToolResult } from "../../core/tools/types";
-import { debug } from "../../utils/debug";
+import { debug, writelog } from "../../utils/debug";
 
 export type TextMessage = {
     id: number;
@@ -50,6 +50,11 @@ export function useAgent(config: Config) {
         };
     }, []);
 
+    // Debug
+    useEffect(() => {
+        writelog("w", "logs/messages.log", messages);
+    }, [messages]);
+
     const sendMessage = useCallback(
         async (text: string) => {
             if (isWorking) return;
@@ -78,8 +83,6 @@ export function useAgent(config: Config) {
 
             try {
                 for await (const event of getAgent().run(text, abort.signal)) {
-                    // debug("event.type:", event.type);
-
                     switch (event.type) {
                         case "text_delta": {
                             if (assistantId === null) {
@@ -120,7 +123,7 @@ export function useAgent(config: Config) {
                         }
 
                         case "tool_call_complete": {
-                            // debug(event);
+                            debug(">>> event : ", event);
                             setMessages((prev) =>
                                 prev.map((m) =>
                                     m.role === "tool" && m.callId === event.callId

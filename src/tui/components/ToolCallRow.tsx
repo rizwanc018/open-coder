@@ -1,13 +1,13 @@
 import { TextAttributes } from "@opentui/core";
 import { theme } from "../theme";
 import type { ToolMessage } from "../hooks/useAgent";
-import { debug } from "../../utils/debug";
 
 const MAX_ARGS_LENGTH = 80;
 
 // Friendlier labels for tool calls; falls back to the raw tool name.
 const TOOL_LABELS: Record<string, string> = {
     read_file: "Read",
+    write_file: "Write"
 };
 
 const toolLabel = (name: string): string => TOOL_LABELS[name] ?? name;
@@ -26,7 +26,6 @@ const readSummary = (preview: string): string | null => {
     for (const line of preview.split("\n")) {
         const showing = line.match(/^Reading lines \d+-\d+ of (\d+)/);
         if (showing) {
-            debug("Showing : ", showing)
             total = Number(showing[1]);
             continue;
         }
