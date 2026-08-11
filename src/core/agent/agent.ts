@@ -4,6 +4,7 @@ import type { AgentEvent, ToolCall } from "./types";
 import { errorMessage } from "../utils/error";
 import type { Config } from "../config/config";
 import { Session } from "./session";
+import { debug } from "../../shared/debug";
 
 export class Agent {
     session: Session;
@@ -33,8 +34,8 @@ export class Agent {
             let errored: boolean = false;
 
             const messages = this.session._contextManager.getMessages();
-            this.session.incrementTurn()
-            
+            this.session.incrementTurn();
+
             for await (const event of this._getClient().chat_completion(messages, {
                 tools: toolSchemas,
                 stream: true,
@@ -83,6 +84,7 @@ export class Agent {
                 return;
             }
 
+            debug(">>> toolCalls : ", toolCalls);
             for (const tc of toolCalls) {
                 if (signal?.aborted) return;
                 yield {

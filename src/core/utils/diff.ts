@@ -10,8 +10,8 @@ export interface FileDiff {
 }
 
 export function toUnifiedDiff(diff: FileDiff): string {
-  const oldName = diff.isNewFile ? "/dev/null(new-file)" : diff.path;
-  const newName = diff.isDeletion ? "/dev/null(file-del)" : diff.path;
+  const oldName = diff.isNewFile ? "/dev/null" : diff.path;
+  const newName = diff.isDeletion ? "/dev/null" : diff.path;
 
   return createTwoFilesPatch(
     oldName,

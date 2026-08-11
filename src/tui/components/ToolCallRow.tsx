@@ -1,22 +1,26 @@
 import { TextAttributes } from "@opentui/core";
 import { theme } from "../theme";
 import type { ToolMessage } from "../hooks/useAgent";
+import { debug } from "../../shared/debug";
 
 const MAX_ARGS_LENGTH = 80;
 
-// Friendlier labels for tool calls; falls back to the raw tool name.
 const TOOL_LABELS: Record<string, string> = {
     read_file: "Read",
-    write_file: "Write"
+    write_file: "Write",
 };
 
 const toolLabel = (name: string): string => TOOL_LABELS[name] ?? name;
 
-const formatArguments = (args: Record<string, unknown>): string => {
-    const text = Object.entries(args)
-        .map(([key, value]) => `${key}: ${typeof value === "string" ? value : JSON.stringify(value)}`)
-        .join(", ");
-    return text.length > MAX_ARGS_LENGTH ? `${text.slice(0, MAX_ARGS_LENGTH)}…` : text;
+const truncateStart = (text: string): string =>
+    text.length > MAX_ARGS_LENGTH ? `…${text.slice(text.length - MAX_ARGS_LENGTH)}` : text;
+
+const formatArguments = (name: string, args: Record<string, unknown>): string => {
+    if (name === "read_file" || name === "write_file") {
+        const path = args["path"];
+        if (typeof path === "string") return truncateStart(path);
+    }
+    return truncateStart(JSON.stringify(args) ?? String(args));
 };
 
 const readSummary = (preview: string): string | null => {
@@ -64,7 +68,7 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
                 <text fg={theme.tool} attributes={TextAttributes.BOLD}>
                     {toolLabel(message.name)}
                 </text>
-                <text fg={theme.muted}>{` (${formatArguments(message.arguments)})`}</text>
+                <text fg={theme.muted}>{` (${formatArguments(message.name, message.arguments)})`}</text>
             </box>
             {message.status === "running" ? (
                 <text fg={theme.muted}>{"  └ running…"}</text>
@@ -73,10 +77,7 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
             ) : message.resultPreview ? (
                 <box flexDirection="column">
                     {message.resultPreview.split("\n").map((line, index) => (
-                        <text
-                            key={index}
-                            fg={message.status === "error" ? theme.error : theme.muted}
-                        >
+                        <text key={index} fg={message.status === "error" ? theme.error : theme.muted}>
                             {`  ${line}`}
                         </text>
                     ))}

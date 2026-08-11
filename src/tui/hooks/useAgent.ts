@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Agent } from "../../core/agent/agent";
 import type { Config } from "../../core/config/config";
 import type { ToolResult } from "../../core/tools/types";
-import { debug, writelog } from "../../utils/debug";
+import { writelog } from "../../shared/debug";
 
 export type TextMessage = {
     id: number;
@@ -52,7 +52,7 @@ export function useAgent(config: Config) {
 
     // Debug
     useEffect(() => {
-        writelog("w", "logs/messages.log", messages);
+        writelog("a", "logs/messages.log", messages);
     }, [messages]);
 
     const sendMessage = useCallback(
@@ -123,7 +123,6 @@ export function useAgent(config: Config) {
                         }
 
                         case "tool_call_complete": {
-                            debug(">>> event : ", event);
                             setMessages((prev) =>
                                 prev.map((m) =>
                                     m.role === "tool" && m.callId === event.callId
