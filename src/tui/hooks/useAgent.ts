@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Agent } from "../../core/agent/agent";
 import type { Config } from "../../core/config/config";
 import type { ToolResult } from "../../core/tools/types";
-import { writelog } from "../../shared/debug";
+import { debug, writelog } from "../../shared/debug";
+import { toUnifiedDiff } from "../../core/utils/diff";
 
 export type TextMessage = {
     id: number;
@@ -18,7 +19,8 @@ export type ToolMessage = {
     name: string;
     arguments: Record<string, unknown>;
     status: "running" | "success" | "error";
-    resultPreview?: string;
+    resultOutput?: string;
+    diff?: string;
 };
 
 export type UIMessage = TextMessage | ToolMessage;
@@ -26,6 +28,7 @@ export type UIMessage = TextMessage | ToolMessage;
 let nextId = 0;
 
 const toResultPreview = (result: ToolResult): string => {
+    debug(">>> result useAgent.ts 29 : ", result);
     const text = result.success ? result.output : (result.error ?? result.output);
     return text.trim();
 };
@@ -51,9 +54,9 @@ export function useAgent(config: Config) {
     }, []);
 
     // Debug
-    useEffect(() => {
-        writelog("a", "logs/messages.log", messages);
-    }, [messages]);
+    // useEffect(() => {
+    //     writelog("a", "logs/messages.log", messages);
+    // }, [messages]);
 
     const sendMessage = useCallback(
         async (text: string) => {
@@ -129,7 +132,10 @@ export function useAgent(config: Config) {
                                         ? {
                                               ...m,
                                               status: event.result.success ? "success" : "error",
-                                              resultPreview: toResultPreview(event.result),
+                                              resultOutput: event.result.output?.trim(),
+                                              ...(event.result.diff !== undefined && {
+                                                  diff: toUnifiedDiff(event.result.diff),
+                                              }),
                                           }
                                         : m,
                                 ),

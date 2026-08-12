@@ -84,7 +84,6 @@ export class Agent {
                 return;
             }
 
-            debug(">>> toolCalls : ", toolCalls);
             for (const tc of toolCalls) {
                 if (signal?.aborted) return;
                 yield {

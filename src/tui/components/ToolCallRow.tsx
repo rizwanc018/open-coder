@@ -1,7 +1,8 @@
 import { TextAttributes } from "@opentui/core";
 import { theme } from "../theme";
 import type { ToolMessage } from "../hooks/useAgent";
-import { debug } from "../../shared/debug";
+import { RGBA, SyntaxStyle } from "@opentui/core";
+import { DiffView } from "./DiffView";
 
 const MAX_ARGS_LENGTH = 80;
 
@@ -25,13 +26,11 @@ const formatArguments = (name: string, args: Record<string, unknown>): string =>
 
 const readSummary = (preview: string): string | null => {
     const lineNumbers: number[] = [];
-    let total: number | null = null;
 
     for (const line of preview.split("\n")) {
         const showing = line.match(/^Reading lines \d+-\d+ of (\d+)/);
         if (showing) {
-            total = Number(showing[1]);
-            continue;
+            return showing[0];
         }
         const match = line.match(/^\s*(\d+)\|/);
         if (match) lineNumbers.push(Number(match[1]));
@@ -41,12 +40,18 @@ const readSummary = (preview: string): string | null => {
 
     const first = lineNumbers[0];
     const last = lineNumbers[lineNumbers.length - 1];
-    return `Reading lines ${first}-${last} of ${total ?? last} lines`;
+    return `Reading lines ${first}-${last}`;
 };
 
 type ToolCallRowProps = {
     message: ToolMessage;
 };
+
+const syntaxStyle = SyntaxStyle.fromStyles({
+    default: { fg: RGBA.fromHex("#E6EDF3") },
+    string: { fg: RGBA.fromHex("#A5D6FF") },
+    keyword: { fg: RGBA.fromHex("#FF7B72"), bold: true },
+});
 
 export function ToolCallRow({ message }: ToolCallRowProps) {
     const bulletColor =
@@ -57,8 +62,8 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
               : theme.error;
 
     const readLine =
-        message.status === "success" && message.name === "read_file" && message.resultPreview
-            ? readSummary(message.resultPreview)
+        message.status === "success" && message.name === "read_file" && message.resultOutput
+            ? readSummary(message.resultOutput)
             : null;
 
     return (
@@ -72,11 +77,13 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
             </box>
             {message.status === "running" ? (
                 <text fg={theme.muted}>{"  └ running…"}</text>
+            ) : message.diff ? (
+                <DiffView diff={message.diff} />
             ) : readLine ? (
                 <text fg={theme.muted}>{`  └ ${readLine}`}</text>
-            ) : message.resultPreview ? (
+            ) : message.resultOutput ? (
                 <box flexDirection="column">
-                    {message.resultPreview.split("\n").map((line, index) => (
+                    {message.resultOutput.split("\n").map((line, index) => (
                         <text key={index} fg={message.status === "error" ? theme.error : theme.muted}>
                             {`  ${line}`}
                         </text>
