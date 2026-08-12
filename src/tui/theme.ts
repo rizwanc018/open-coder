@@ -28,7 +28,7 @@ export const theme = {
 
     // Diff
     added: "#9ece6a",
-    removed: "#ff0230",
+    removed: "#e80f37",
 } as const;
 
 export const spinnerFrames = ["⠹", "⢸", "⣰", "⣤", "⣆", "⡇", "⠏", "⠛"];

@@ -27,11 +27,7 @@ export type UIMessage = TextMessage | ToolMessage;
 
 let nextId = 0;
 
-const toResultPreview = (result: ToolResult): string => {
-    debug(">>> result useAgent.ts 29 : ", result);
-    const text = result.success ? result.output : (result.error ?? result.output);
-    return text.trim();
-};
+
 
 export function useAgent(config: Config) {
     const agentRef = useRef<Agent | null>(null);
@@ -55,7 +51,7 @@ export function useAgent(config: Config) {
 
     // Debug
     // useEffect(() => {
-    //     writelog("a", "logs/messages.log", messages);
+    //     writelog("w", "logs/messages.log", messages);
     // }, [messages]);
 
     const sendMessage = useCallback(

@@ -1,7 +1,6 @@
 import { TextAttributes } from "@opentui/core";
 import { theme } from "../theme";
 import type { ToolMessage } from "../hooks/useAgent";
-import { RGBA, SyntaxStyle } from "@opentui/core";
 import { DiffView } from "./DiffView";
 
 const MAX_ARGS_LENGTH = 80;
@@ -9,6 +8,7 @@ const MAX_ARGS_LENGTH = 80;
 const TOOL_LABELS: Record<string, string> = {
     read_file: "Read",
     write_file: "Write",
+    edit_file: "Edit",
 };
 
 const toolLabel = (name: string): string => TOOL_LABELS[name] ?? name;
@@ -16,10 +16,15 @@ const toolLabel = (name: string): string => TOOL_LABELS[name] ?? name;
 const truncateStart = (text: string): string =>
     text.length > MAX_ARGS_LENGTH ? `…${text.slice(text.length - MAX_ARGS_LENGTH)}` : text;
 
+const getPath = (args: Record<string, unknown>): string | undefined => {
+    const path = args["path"];
+    return typeof path === "string" ? path : undefined;
+};
+
 const formatArguments = (name: string, args: Record<string, unknown>): string => {
-    if (name === "read_file" || name === "write_file") {
-        const path = args["path"];
-        if (typeof path === "string") return truncateStart(path);
+    if (name === "read_file" || name === "write_file" || name === "edit_file") {
+        const path = getPath(args);
+        if (path !== undefined) return truncateStart(path);
     }
     return truncateStart(JSON.stringify(args) ?? String(args));
 };
@@ -47,12 +52,6 @@ type ToolCallRowProps = {
     message: ToolMessage;
 };
 
-const syntaxStyle = SyntaxStyle.fromStyles({
-    default: { fg: RGBA.fromHex("#E6EDF3") },
-    string: { fg: RGBA.fromHex("#A5D6FF") },
-    keyword: { fg: RGBA.fromHex("#FF7B72"), bold: true },
-});
-
 export function ToolCallRow({ message }: ToolCallRowProps) {
     const bulletColor =
         message.status === "running"
@@ -78,7 +77,12 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
             {message.status === "running" ? (
                 <text fg={theme.muted}>{"  └ running…"}</text>
             ) : message.diff ? (
-                <DiffView diff={message.diff} />
+                <DiffView
+                    diff={message.diff}
+                    output={message.resultOutput}
+                    toolName={message.name}
+                    path={getPath(message.arguments)}
+                />
             ) : readLine ? (
                 <text fg={theme.muted}>{`  └ ${readLine}`}</text>
             ) : message.resultOutput ? (

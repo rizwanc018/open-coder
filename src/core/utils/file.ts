@@ -15,3 +15,20 @@ export function isBinaryFile(path: string): boolean {
         if (fd !== undefined) closeSync(fd);
     }
 }
+
+
+export const FILE_TYPES: Record<string, string> = {
+    js: "javascript",
+    jsx: "javascript",
+    ts: "typescript",
+    tsx: "typescript",
+    py: "python",
+    json: "json",
+    css: "css",
+    html: "html",
+    md: "markdown",
+    sh: "bash",
+    bash: "bash",
+    yml: "yaml",
+    yaml: "yaml",
+};
