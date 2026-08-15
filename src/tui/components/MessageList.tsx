@@ -36,7 +36,7 @@ function renderMessage(message: UIMessage, isLast: boolean, isWorking: boolean) 
 
 export function MessageList({ messages, isWorking }: MessageListProps) {
     return (
-        <scrollbox flexGrow={1} stickyScroll stickyStart="bottom">
+        <scrollbox width="100%" flexGrow={1} flexShrink={1} stickyScroll stickyStart="bottom">
             <Header />
             {messages.map((message, index) => (
                 <box key={message.id} width="100%" paddingTop={1}>

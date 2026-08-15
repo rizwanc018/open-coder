@@ -4,8 +4,8 @@ import { theme } from "../theme";
 
 export const TEXTAREA_KEY_BINDINGS: KeyBinding[] = [
     { name: "return", action: "submit" },
-    { name: "return", shift: true, action: "newline" },  // kitty-capable terminals only
-    { name: "return", meta: true, action: "newline" },   // alt+enter — works everywhere
+    { name: "return", shift: true, action: "newline" }, // kitty-capable terminals only
+    { name: "return", meta: true, action: "newline" }, // alt+enter — works everywhere
 ];
 
 type InputProps = {
@@ -30,6 +30,7 @@ export const Inputbar = ({ onSubmit, disabled = false }: InputProps) => {
     return (
         <box
             width="100%"
+            flexShrink={0}
             flexDirection="row"
             alignItems="flex-start"
             border={["top", "bottom"]}
@@ -38,11 +39,14 @@ export const Inputbar = ({ onSubmit, disabled = false }: InputProps) => {
             <box paddingRight={1}>
                 <text fg={theme.user}>❯</text>
             </box>
-            <box width="100%">
+
+            <box flexGrow={1}>
                 <textarea
                     ref={textareaRef}
+                    width="100%"
+                    height={1}
                     focused={true}
-                    placeholder={disabled ? `Working... ` : `Ask anything... `}
+                    placeholder={disabled ? "Working..." : "Ask anything..."}
                     placeholderColor={theme.muted}
                     keyBindings={TEXTAREA_KEY_BINDINGS}
                     onSubmit={handleSubmit}

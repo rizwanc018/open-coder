@@ -5,6 +5,7 @@ import { debug, writelog } from "../../shared/debug";
 import { toUnifiedDiff } from "../../core/utils/diff";
 import type { ShellExecution } from "../../core/tools/types";
 
+
 export type TextMessage = {
     id: number;
     role: "user" | "assistant";
