@@ -18,6 +18,7 @@ export const writeFileTool = defineTool({
     kind: TOOL_KIND.Write,
     schema,
     async execute({ path: rawPath, content, createDirectories }, ctx) {
+
         const path = resolvePath(ctx.cwd, rawPath);
         const isNewFile = !existsSync(path);
         let oldContent = "";

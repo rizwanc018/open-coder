@@ -1,10 +1,12 @@
 import { getBuiltinTools } from ".";
+import type { Config } from "../config/config";
 import { errorMessage } from "../utils/error";
 import { err, toToolSchema, type AnyTool, type ToolContext, type ToolResult, type ToolSchema } from "./types";
 
 export interface InvokeOptions {
     cwd: string;
     signal?: AbortSignal;
+    config: Config
 }
 
 export class ToolRegistry {
@@ -37,7 +39,7 @@ export class ToolRegistry {
         rawParams: Record<string, unknown>,
         options: InvokeOptions,
     ): Promise<ToolResult> {
-        const { cwd, signal } = options;
+        const { cwd, signal, config } = options;
 
         const tool = this.get(name);
         if (!tool) {
@@ -57,7 +59,7 @@ export class ToolRegistry {
         }
 
         const params = parsed.data as Record<string, unknown>;
-        const ctx: ToolContext = { cwd, signal };
+        const ctx: ToolContext = { cwd, signal, config };
 
         let result: ToolResult;
         try {

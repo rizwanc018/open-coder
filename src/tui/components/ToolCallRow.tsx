@@ -2,6 +2,7 @@ import { TextAttributes } from "@opentui/core";
 import { theme } from "../theme";
 import type { ToolMessage } from "../hooks/useAgent";
 import { DiffView } from "./DiffView";
+import { ShellResultView } from "./ShellResultView";
 
 const MAX_ARGS_LENGTH = 80;
 
@@ -9,6 +10,7 @@ const TOOL_LABELS: Record<string, string> = {
     read_file: "Read",
     write_file: "Write",
     edit_file: "Edit",
+    shell: "Shell",
 };
 
 const toolLabel = (name: string): string => TOOL_LABELS[name] ?? name;
@@ -16,16 +18,20 @@ const toolLabel = (name: string): string => TOOL_LABELS[name] ?? name;
 const truncateStart = (text: string): string =>
     text.length > MAX_ARGS_LENGTH ? `…${text.slice(text.length - MAX_ARGS_LENGTH)}` : text;
 
-const getPath = (args: Record<string, unknown>): string | undefined => {
-    const path = args["path"];
-    return typeof path === "string" ? path : undefined;
+const getValueOf = (args: Record<string, unknown>, key: string) => {
+    return typeof args[key] === "string" ? (args[key] as string) : null;
 };
 
 const formatArguments = (name: string, args: Record<string, unknown>): string => {
+    let argValue;
+
     if (name === "read_file" || name === "write_file" || name === "edit_file") {
-        const path = getPath(args);
-        if (path !== undefined) return truncateStart(path);
+        argValue = getValueOf(args, "path");
     }
+    if (name === "shell") {
+        argValue = getValueOf(args, "command");
+    }
+    if (argValue) return truncateStart(argValue);
     return truncateStart(JSON.stringify(args) ?? String(args));
 };
 
@@ -76,12 +82,14 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
             </box>
             {message.status === "running" ? (
                 <text fg={theme.muted}>{"  └ running…"}</text>
+            ) : message.name === "shell" && message.shell ? (
+                <ShellResultView execution={message.shell} />
             ) : message.diff ? (
                 <DiffView
                     diff={message.diff}
                     output={message.resultOutput}
                     toolName={message.name}
-                    path={getPath(message.arguments)}
+                    path={getValueOf(message.arguments, "path")}
                 />
             ) : readLine ? (
                 <text fg={theme.muted}>{`  └ ${readLine}`}</text>

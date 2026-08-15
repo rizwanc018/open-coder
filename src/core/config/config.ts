@@ -12,16 +12,24 @@ const modelConfigSchema = z.object(
     MISSING_MODEL,
 );
 
+const shellEnvironmentPolicySchema = z.object({
+    disableExcludes: z.boolean().default(false),
+    excludePatterns: z.array(z.string()).default(["*KEY*", "*TOKEN*", "*SECRET*"]),
+    setVars: z.record(z.string(), z.string()).default({}),
+});
+
 export const configSchema = z.object({
     model: modelConfigSchema,
     cwd: z.string().default(() => process.cwd()),
     maxTurns: z.number().int().positive().default(150),
     developerInstructions: z.string().nullable().default(null),
     userInstructions: z.string().nullable().default(null),
+    shellEnvironment: shellEnvironmentPolicySchema.prefault({}),
     debug: z.boolean().default(false),
 });
 
 export type Config = z.infer<typeof configSchema>;
+export type ShellEnvironmentPolicy = z.infer<typeof shellEnvironmentPolicySchema>;
 
 export function apiKey(): string | undefined {
     return process.env.OPENROUTER_API_KEY;
@@ -31,7 +39,9 @@ export function validateConfig(config: Config): string[] {
     const errors: string[] = [];
 
     if (!apiKey()?.trim()) {
-        errors.push("No API key found. Set the Openrouter api key in .env file {OPENROUTER_API_KEY=<api key> }.");
+        errors.push(
+            "No API key found. Set the Openrouter api key in .env file {OPENROUTER_API_KEY=<api key> }.",
+        );
     }
 
     let isDirectory = false;

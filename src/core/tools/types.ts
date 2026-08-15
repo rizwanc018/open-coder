@@ -1,5 +1,6 @@
 import z from "zod";
 import type { FileDiff } from "../utils/diff";
+import type { Config } from "../config/config";
 
 export const TOOL_KIND = {
     Read: "read",
@@ -14,8 +15,19 @@ export type ToolKind = (typeof TOOL_KIND)[keyof typeof TOOL_KIND];
 
 export const TOOL_KINDS = Object.values(TOOL_KIND);
 
+export type ShellTermination = "exited" | "timeout" | "cancelled" | "spawn_failed";
+
+export type ShellExecution = {
+    stdout: string;
+    stderr: string;
+    exitCode: number | null;
+    termination: ShellTermination;
+    durationMs: number;
+};
+
 export interface ToolContext {
     cwd: string;
+    config: Config;
     signal?: AbortSignal;
 }
 
@@ -26,6 +38,7 @@ export interface ToolResult {
     metadata?: Record<string, unknown>;
     truncated?: boolean;
     diff?: FileDiff;
+    shell?: ShellExecution
 }
 
 export interface ToolSchema {

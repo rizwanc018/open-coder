@@ -4,7 +4,6 @@ import type { AgentEvent, ToolCall } from "./types";
 import { errorMessage } from "../utils/error";
 import type { Config } from "../config/config";
 import { Session } from "./session";
-import { debug } from "../../shared/debug";
 
 export class Agent {
     session: Session;
@@ -95,6 +94,7 @@ export class Agent {
 
                 const result = await this.session._toolRegistry.invoke(tc.name, tc.arguments, {
                     cwd: this.session._config.cwd,
+                    config: this.session._config,
                     signal,
                 });
 

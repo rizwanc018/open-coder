@@ -41,3 +41,7 @@ export const truncateText = (text: string, maxTokens: number, suffix = "\n... [t
     }
     return text.slice(0, low) + suffix;
 };
+
+export function truncateChars(text: string, maxChars: number, suffix = "\n... [truncated]"): string {
+    return text.length <= maxChars ? text : text.slice(0, maxChars) + suffix;
+}

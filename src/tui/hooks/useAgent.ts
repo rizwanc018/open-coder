@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Agent } from "../../core/agent/agent";
 import type { Config } from "../../core/config/config";
-import type { ToolResult } from "../../core/tools/types";
 import { debug, writelog } from "../../shared/debug";
 import { toUnifiedDiff } from "../../core/utils/diff";
+import type { ShellExecution } from "../../core/tools/types";
 
 export type TextMessage = {
     id: number;
@@ -18,16 +18,16 @@ export type ToolMessage = {
     callId: string;
     name: string;
     arguments: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
     status: "running" | "success" | "error";
     resultOutput?: string;
     diff?: string;
+    shell?: ShellExecution;
 };
 
 export type UIMessage = TextMessage | ToolMessage;
 
 let nextId = 0;
-
-
 
 export function useAgent(config: Config) {
     const agentRef = useRef<Agent | null>(null);
@@ -50,9 +50,9 @@ export function useAgent(config: Config) {
     }, []);
 
     // Debug
-    // useEffect(() => {
-    //     writelog("w", "logs/messages.log", messages);
-    // }, [messages]);
+    useEffect(() => {
+        writelog("w", "logs/messages.log", messages);
+    }, [messages]);
 
     const sendMessage = useCallback(
         async (text: string) => {
@@ -127,10 +127,16 @@ export function useAgent(config: Config) {
                                     m.role === "tool" && m.callId === event.callId
                                         ? {
                                               ...m,
+                                              metadata: event.result.metadata,
                                               status: event.result.success ? "success" : "error",
-                                              resultOutput: event.result.output?.trim(),
+                                              resultOutput: event.result.success
+                                                  ? event.result.output?.trim()
+                                                  : event.result.error?.trim(),
                                               ...(event.result.diff !== undefined && {
                                                   diff: toUnifiedDiff(event.result.diff),
+                                              }),
+                                              ...(event.result.shell && {
+                                                  shell: event.result.shell,
                                               }),
                                           }
                                         : m,

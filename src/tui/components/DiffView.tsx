@@ -19,7 +19,7 @@ export function DiffView({
     diff: string;
     output: string | undefined;
     toolName: "write_file" | "edit_file" | string;
-    path: string | undefined;
+    path: string | null;
 }) {
     const view = toolName === "edit_file" ? "split" : "unified";
     const { additions, deletions }: DiffStats = getDiffStats(diff);
