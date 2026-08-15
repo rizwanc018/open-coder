@@ -10,6 +10,7 @@ const TOOL_LABELS: Record<string, string> = {
     read_file: "Read",
     write_file: "Write",
     edit_file: "Edit",
+    list_dir: "List",
     shell: "Shell",
 };
 
@@ -25,7 +26,7 @@ const getValueOf = (args: Record<string, unknown>, key: string) => {
 const formatArguments = (name: string, args: Record<string, unknown>): string => {
     let argValue;
 
-    if (name === "read_file" || name === "write_file" || name === "edit_file") {
+    if (name === "read_file" || name === "write_file" || name === "edit_file" || name === "list_dir") {
         argValue = getValueOf(args, "path");
     }
     if (name === "shell") {
