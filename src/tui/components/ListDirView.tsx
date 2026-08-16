@@ -44,9 +44,7 @@ const isListDirMetadata = (metadata: Record<string, unknown>): metadata is ListD
     );
 };
 
-const getEntryIcon = (type: ListDirEntry["type"]): string => {
-    return type === "directory" ? "📁" : "📄";
-};
+
 
 export function ListDirView({ metadata }: ListDirViewProps) {
     if (!isListDirMetadata(metadata)) {
@@ -96,13 +94,11 @@ export function ListDirView({ metadata }: ListDirViewProps) {
             <box flexDirection="column" marginTop={1} marginLeft={4}>
                 {entries.map((entry) => (
                     <box key={`${entry.type}-${entry.name}`} flexDirection="row">
-                        <text fg={entry.type === "directory" ? theme.accent : theme.muted}>
-                            {getEntryIcon(entry.type)}{" "}
-                        </text>
+
 
                         <text
-                            fg={entry.type === "directory" ? theme.info : theme.muted}
-                            attributes={entry.type === "directory" ? TextAttributes.BOLD : undefined}
+                            fg={entry.type === "directory" ? theme.info : theme.code}
+                            attributes={entry.type === "directory" ? TextAttributes.BOLD : TextAttributes.DIM}
                         >
                             {entry.name}
                             {entry.type === "directory" ? "/" : ""}

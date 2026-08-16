@@ -15,9 +15,9 @@ const schema = z.object({
         .number()
         .int()
         .min(1)
-        .max(3)
-        .default(2)
-        .describe("Maximum number of entries to return (default: 2, max: 3)"),
+        .max(500)
+        .default(200)
+        .describe("Maximum number of entries to return (default: 200, max: 500)"),
     offset: z
         .number()
         .int()
@@ -37,9 +37,11 @@ export const listDirTool = defineTool({
         const dir = resolvePath(ctx.cwd, rawPath);
 
         try {
-            const stat = statSync(dir);
+            if (!pathExists(dir)) {
+                return err(`Directory does not exist: ${dir}`);
+            }
 
-            if (!stat.isDirectory()) {
+            if (!statSync(dir).isDirectory()) {
                 return err(`Not a directory: ${dir}`);
             }
 
