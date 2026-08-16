@@ -109,7 +109,12 @@ Requests carry an `AbortSignal`, so an in-flight turn can be cancelled. `LLMClie
 
 | Tool | Kind | Description |
 | --- | --- | --- |
-| `read_file` | read | Reads a text file with line numbers. Supports `offset`/`limit`, rejects binaries and files over 10MB, and truncates output past 25k tokens. |
+| `read_file` | read | Reads a text file with line numbers. Supports `offset` and `limit`, rejects binary files and files larger than 10 MB, and truncates large output. |
+| `write_file` | write | Creates or overwrites a file with the provided content. |
+| `edit_file` | write | Applies targeted edits to an existing file. |
+| `list_dir` | read | Lists directory contents with directories and files clearly separated and sorted. |
+| `shell` | execute | Executes shell commands in the configured working directory and returns the command output and execution status. |
+
 
 ### Adding a tool
 
