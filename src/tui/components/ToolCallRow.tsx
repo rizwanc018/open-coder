@@ -3,6 +3,7 @@ import { theme } from "../theme";
 import type { ToolMessage } from "../hooks/useAgent";
 import { DiffView } from "./DiffView";
 import { ShellResultView } from "./ShellResultView";
+import { ListDirView } from "./ListDirView";
 
 const MAX_ARGS_LENGTH = 80;
 
@@ -85,6 +86,8 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
                 <text fg={theme.muted}>{"  └ running…"}</text>
             ) : message.name === "shell" && message.shell ? (
                 <ShellResultView execution={message.shell} />
+            ) : message.name === "list_dir" && message.metadata ? (
+                <ListDirView metadata={message.metadata} />
             ) : message.diff ? (
                 <DiffView
                     diff={message.diff}

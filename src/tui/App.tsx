@@ -10,12 +10,6 @@ import { errorMessage } from "../core/utils/error";
 function App({ config }: { config: Config }) {
     const { messages, isWorking, sendMessage } = useAgent(config);
 
-    // return (
-    //     <box alignItems="center" flexGrow={1} position="relative" width="100%" height="100%" paddingTop={1}>
-    //         <MessageList messages={messages} isWorking={isWorking} />
-    //         <Inputbar onSubmit={sendMessage} disabled={isWorking} />
-    //     </box>
-    // );
     return (
         <box flexDirection="column" width="100%" height="100%">
             <MessageList messages={messages} isWorking={isWorking} />
