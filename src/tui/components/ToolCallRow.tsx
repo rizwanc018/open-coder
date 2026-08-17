@@ -4,8 +4,9 @@ import type { ToolMessage } from "../hooks/useAgent";
 import { DiffView } from "./DiffView";
 import { ShellResultView } from "./ShellResultView";
 import { ListDirView } from "./ListDirView";
+import { GrepView } from "./GrepView";
 
-const MAX_ARGS_LENGTH = 80;
+const MAX_ARGS_LENGTH = 100;
 
 const TOOL_LABELS: Record<string, string> = {
     read_file: "Read",
@@ -13,6 +14,7 @@ const TOOL_LABELS: Record<string, string> = {
     edit_file: "Edit",
     list_dir: "List",
     shell: "Shell",
+    grep: "Grep",
 };
 
 const toolLabel = (name: string): string => TOOL_LABELS[name] ?? name;
@@ -32,6 +34,15 @@ const formatArguments = (name: string, args: Record<string, unknown>): string =>
     }
     if (name === "shell") {
         argValue = getValueOf(args, "command");
+    }
+    if (name === "shell") {
+        argValue = getValueOf(args, "command");
+    }
+    if (name === "grep") {
+        argValue = "path: ";
+        argValue += getValueOf(args, "path");
+        argValue += ", pattern : ";
+        argValue += `"${getValueOf(args, "pattern")}" `;
     }
     if (argValue) return truncateStart(argValue);
     return truncateStart(JSON.stringify(args) ?? String(args));
@@ -86,6 +97,13 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
                 <text fg={theme.muted}>{"  └ running…"}</text>
             ) : message.name === "shell" && message.shell ? (
                 <ShellResultView execution={message.shell} />
+            ) : message.name === "grep" ? (
+                <GrepView
+                    metadata={message.metadata}
+                    output={message.resultOutput}
+                    pattern={getValueOf(message.arguments, "pattern")!}
+                    caseInsensitive={getValueOf(message.arguments, "caseInsensitive") === "true"}
+                />
             ) : message.name === "list_dir" && message.metadata ? (
                 <ListDirView metadata={message.metadata} />
             ) : message.diff ? (

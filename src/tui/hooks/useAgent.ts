@@ -4,7 +4,7 @@ import type { Config } from "../../core/config/config";
 import { debug, writelog } from "../../shared/debug";
 import { toUnifiedDiff } from "../../core/utils/diff";
 import type { ShellExecution } from "../../core/tools/types";
-
+import data from "../../../logs/message.json";
 
 export type TextMessage = {
     id: number;
@@ -34,7 +34,10 @@ export function useAgent(config: Config) {
     const agentRef = useRef<Agent | null>(null);
     const abortRef = useRef<AbortController | null>(null);
 
-    const [messages, setMessages] = useState<UIMessage[]>([]);
+    const msgs = data as UIMessage[];
+    const [messages, setMessages] = useState<UIMessage[]>(msgs);
+    // const [messages, setMessages] = useState<UIMessage[]>([]);
+
     const [isWorking, setIsWorking] = useState(false);
 
     const getAgent = (): Agent => {

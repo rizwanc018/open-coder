@@ -3,7 +3,6 @@ import { defineTool, err, ok, TOOL_KIND } from "../types";
 import { pathExists, resolvePath } from "../../utils/path";
 import { readdirSync, statSync } from "node:fs";
 import { errorMessage } from "../../utils/error";
-import { debug } from "../../../shared/debug";
 
 const schema = z.object({
     path: z.string().default(".").describe("Directory path to list (default: current directory)"),
