@@ -5,6 +5,7 @@ import { DiffView } from "./DiffView";
 import { ShellResultView } from "./ShellResultView";
 import { ListDirView } from "./ListDirView";
 import { GrepView } from "./GrepView";
+import { GlobView } from "./GlobView";
 
 const MAX_ARGS_LENGTH = 100;
 
@@ -15,6 +16,7 @@ const TOOL_LABELS: Record<string, string> = {
     list_dir: "List",
     shell: "Shell",
     grep: "Grep",
+    glob: "Glob",
 };
 
 const toolLabel = (name: string): string => TOOL_LABELS[name] ?? name;
@@ -38,10 +40,10 @@ const formatArguments = (name: string, args: Record<string, unknown>): string =>
     if (name === "shell") {
         argValue = getValueOf(args, "command");
     }
-    if (name === "grep") {
+    if (name === "grep" || name === "glob") {
         argValue = "path: ";
         argValue += getValueOf(args, "path");
-        argValue += ", pattern : ";
+        argValue += ", pattern: ";
         argValue += `"${getValueOf(args, "pattern")}" `;
     }
     if (argValue) return truncateStart(argValue);
@@ -104,6 +106,8 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
                     pattern={getValueOf(message.arguments, "pattern")!}
                     caseInsensitive={getValueOf(message.arguments, "caseInsensitive") === "true"}
                 />
+            ) : message.name === "glob" ? (
+                <GlobView metadata={message.metadata} output={message.resultOutput} />
             ) : message.name === "list_dir" && message.metadata ? (
                 <ListDirView metadata={message.metadata} />
             ) : message.diff ? (
