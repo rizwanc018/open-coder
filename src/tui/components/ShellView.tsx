@@ -1,7 +1,9 @@
+import { useState } from "react";
 import type { ShellExecution } from "../../core/tools/types";
 import { theme } from "../theme";
+import { TextAttributes } from "@opentui/core";
 
-type ShellResultViewProps = {
+type ShellViewProps = {
     execution: ShellExecution;
 };
 
@@ -43,14 +45,34 @@ const getStatusText = (execution: ShellExecution) => {
     }
 };
 
-export function ShellResultView({ execution }: ShellResultViewProps) {
+const getVisibleLines = (output: string, expanded: boolean): string[] => {
+    const lines = output.split("\n");
+
+    return expanded ? lines : lines.slice(0, MAX_VISIBLE_LINES);
+};
+
+const MAX_VISIBLE_LINES = 10;
+
+export function ShellView({ execution }: ShellViewProps) {
+    const [expanded, setExpanded] = useState(false);
+
     const statusColor = getStatusColor(execution);
     const statusText = getStatusText(execution);
 
     const duration = execution.termination === "exited" ? ` · ${formatDuration(execution.durationMs)}` : "";
 
+    const stdoutLines = execution.stdout.split("\n");
+    const stderrLines = execution.stderr.split("\n");
+
     const hasStdout = execution.stdout.length > 0;
     const hasStderr = execution.stderr.length > 0;
+
+    const visibleStdout = getVisibleLines(execution.stdout, expanded);
+    const visibleStderr = getVisibleLines(execution.stderr, expanded);
+
+    const hasMoreStdout = stdoutLines.length > MAX_VISIBLE_LINES;
+    const hasMoreStderr = stderrLines.length > MAX_VISIBLE_LINES;
+    const hasMore = hasMoreStdout || hasMoreStderr;
 
     return (
         <box flexDirection="column">
@@ -61,7 +83,7 @@ export function ShellResultView({ execution }: ShellResultViewProps) {
             </text>
             {hasStdout ? (
                 <box flexDirection="column" marginTop={1}>
-                    {execution.stdout.split("\n").map((line, index) => (
+                    {visibleStdout.map((line, index) => (
                         <text key={`stdout-${index}`} fg={theme.muted}>
                             {`    ${line}`}
                         </text>
@@ -73,13 +95,25 @@ export function ShellResultView({ execution }: ShellResultViewProps) {
                 <box flexDirection="column" marginTop={hasStdout ? 1 : 0}>
                     <text fg={theme.error}>{"    stderr"}</text>
 
-                    {execution.stderr.split("\n").map((line, index) => (
+                    {visibleStderr.map((line, index) => (
                         <text key={`stderr-${index}`} fg={theme.error}>
                             {`    ${line}`}
                         </text>
                     ))}
                 </box>
             ) : null}
+
+            {hasMore && (
+                
+                <text
+                    fg={theme.dim}
+                    onMouseDown={() => setExpanded((value) => !value)}
+                    attributes={TextAttributes.UNDERLINE}
+                    marginLeft={4}
+                >
+                    { expanded ? "Show less" : "Click to expand"}
+                </text>
+            )}
         </box>
     );
 }

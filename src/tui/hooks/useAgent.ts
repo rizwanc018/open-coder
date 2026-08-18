@@ -4,7 +4,7 @@ import type { Config } from "../../core/config/config";
 import { debug, writelog } from "../../shared/debug";
 import { toUnifiedDiff } from "../../core/utils/diff";
 import type { ShellExecution } from "../../core/tools/types";
-import data from "../../../logs/message2.json";
+import data from "../../../logs/message.json";
 
 export type TextMessage = {
     id: number;

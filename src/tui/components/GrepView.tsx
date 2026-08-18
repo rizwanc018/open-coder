@@ -1,5 +1,6 @@
 import { TextAttributes } from "@opentui/core";
 import { theme } from "../theme";
+import { useState } from "react";
 
 type GrepMetadata = {
     path: string;
@@ -92,7 +93,11 @@ const highlightLine = (line: string, pattern: string, caseInsensitive: boolean) 
     );
 };
 
+const MAX_VISIBLE_LINES = 10;
+
 export function GrepView({ metadata, output, pattern, caseInsensitive }: GrepViewProps) {
+    const [expanded, setExpanded] = useState(false);
+
     if (!metadata || !isGrepMetadata(metadata)) {
         return null;
     }
@@ -127,6 +132,9 @@ export function GrepView({ metadata, output, pattern, caseInsensitive }: GrepVie
 
     const files = parseOutput(output);
 
+    const visibleFiles = expanded ? files : files.slice(0, MAX_VISIBLE_LINES);
+    const hasMore = files.length > MAX_VISIBLE_LINES;
+
     return (
         <box flexDirection="column">
             <text fg={theme.muted}>
@@ -143,7 +151,7 @@ export function GrepView({ metadata, output, pattern, caseInsensitive }: GrepVie
             </text>
 
             <box flexDirection="column" marginTop={1} marginLeft={4}>
-                {files.map((file) => (
+                {visibleFiles.map((file) => (
                     <box key={file.path} flexDirection="column" marginBottom={1}>
                         <text fg={theme.info} attributes={TextAttributes.BOLD}>
                             {file.path}
@@ -159,6 +167,17 @@ export function GrepView({ metadata, output, pattern, caseInsensitive }: GrepVie
                         ))}
                     </box>
                 ))}
+                {hasMore && (
+                    <text
+                        fg={theme.dim}
+                        onMouseDown={() => setExpanded((value) => !value)}
+                        attributes={TextAttributes.UNDERLINE}
+                    >
+                        {expanded
+                            ? "Show less"
+                            : `Click to expand (${files.length - MAX_VISIBLE_LINES} more)`}
+                    </text>
+                )}
             </box>
         </box>
     );

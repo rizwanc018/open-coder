@@ -32,11 +32,6 @@ export function DiffView({
             <text fg={theme.muted}>{`  └  ${onelinemessage}`}</text>
 
             <box marginTop={1} flexDirection="column">
-                {/* {diff.split("\n").map((line, index) => (
-                    <text key={index} fg={getDiffColor(line)}>
-                        {`    ${line}`}
-                    </text>
-                ))} */}
                 <diff diff={diff} filetype={filetype} syntaxStyle={syntaxStyle} view={view} />
             </box>
         </box>

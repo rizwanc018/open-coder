@@ -84,7 +84,7 @@ export function GlobView({ metadata, output }: GlobViewProps) {
 
                     {hasMore && (
                         <text
-                            fg={theme.info}
+                            fg={theme.dim}
                             onMouseDown={() => setExpanded((value) => !value)}
                             attributes={TextAttributes.UNDERLINE}
                         >

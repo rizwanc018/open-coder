@@ -1,5 +1,6 @@
 import { TextAttributes } from "@opentui/core";
 import { theme } from "../theme";
+import { useState } from "react";
 
 type ListDirEntry = {
     name: string;
@@ -44,14 +45,16 @@ const isListDirMetadata = (metadata: Record<string, unknown>): metadata is ListD
     );
 };
 
-
+const MAX_VISIBLE_LINES = 15;
 
 export function ListDirView({ metadata }: ListDirViewProps) {
+    const [expanded, setExpanded] = useState(false);
+
     if (!isListDirMetadata(metadata)) {
         return null;
     }
 
-    const { totalEntries, offset, returnedCount, hasMore, entries } = metadata;
+    const { totalEntries, offset, returnedCount, entries } = metadata;
 
     if (totalEntries === 0) {
         return (
@@ -78,24 +81,27 @@ export function ListDirView({ metadata }: ListDirViewProps) {
     const firstEntry = offset + 1;
     const lastEntry = offset + returnedCount;
 
+    const visibleEntries = expanded ? entries : entries.slice(0, MAX_VISIBLE_LINES);
+    const hasMoreEntries = entries.length > MAX_VISIBLE_LINES;
+
     return (
         <box flexDirection="column">
             <text fg={theme.muted}>
                 {"  └ "}
                 <span fg={theme.info}>
-                   Total {totalEntries} {totalEntries === 1 ? "entry" : "entries"}
+                    Total {totalEntries} {totalEntries === 1 ? "entry" : "entries"}
                 </span>
 
                 <span fg={theme.dim}>{" · "}</span>
 
-                <span fg={theme.muted}>showing {firstEntry}–{lastEntry} of {totalEntries}</span>
+                <span fg={theme.muted}>
+                    showing {firstEntry}–{lastEntry} of {totalEntries}
+                </span>
             </text>
 
             <box flexDirection="column" marginTop={1} marginLeft={4}>
-                {entries.map((entry) => (
+                {visibleEntries.map((entry) => (
                     <box key={`${entry.type}-${entry.name}`} flexDirection="row">
-
-
                         <text
                             fg={entry.type === "directory" ? theme.info : theme.code}
                             attributes={entry.type === "directory" ? TextAttributes.BOLD : TextAttributes.DIM}
@@ -105,6 +111,17 @@ export function ListDirView({ metadata }: ListDirViewProps) {
                         </text>
                     </box>
                 ))}
+                {hasMoreEntries && (
+                    <text
+                        fg={theme.dim}
+                        onMouseDown={() => setExpanded((value) => !value)}
+                        attributes={TextAttributes.UNDERLINE}
+                    >
+                        {expanded
+                            ? "Show less"
+                            : `Click to expand (${entries.length - MAX_VISIBLE_LINES} more)`}{" "}
+                    </text>
+                )}
             </box>
         </box>
     );

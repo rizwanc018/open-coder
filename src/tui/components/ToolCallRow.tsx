@@ -2,7 +2,7 @@ import { TextAttributes } from "@opentui/core";
 import { theme } from "../theme";
 import type { ToolMessage } from "../hooks/useAgent";
 import { DiffView } from "./DiffView";
-import { ShellResultView } from "./ShellResultView";
+import { ShellView } from "./ShellView";
 import { ListDirView } from "./ListDirView";
 import { GrepView } from "./GrepView";
 import { GlobView } from "./GlobView";
@@ -98,7 +98,7 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
             {message.status === "running" ? (
                 <text fg={theme.muted}>{"  └ running…"}</text>
             ) : message.name === "shell" && message.shell ? (
-                <ShellResultView execution={message.shell} />
+                <ShellView execution={message.shell} />
             ) : message.name === "grep" ? (
                 <GrepView
                     metadata={message.metadata}
