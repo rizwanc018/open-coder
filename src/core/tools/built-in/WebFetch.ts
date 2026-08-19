@@ -1,5 +1,5 @@
 import z from "zod";
-import { defineTool, err, ok } from "../types";
+import { defineTool, err, ok, TOOL_KIND } from "../types";
 import { errorMessage } from "../../utils/error";
 import {
     htmlToText,
@@ -45,12 +45,9 @@ const schema = z.object({
 
 export const webFetchTool = defineTool({
     name: "web_fetch",
-
     description:
         "Fetch content from a URL. HTML pages are converted to plain text; other content types are returned as-is.",
-
-    kind: "network",
-
+    kind: TOOL_KIND.Network,
     schema,
 
     async execute({ url, timeout, raw }, ctx) {

@@ -1,5 +1,5 @@
 import z from "zod";
-import { defineTool, err, ok } from "../types";
+import { defineTool, err, ok, TOOL_KIND } from "../types";
 import { errorMessage } from "../../utils/error";
 import { htmlToText } from "../../utils/web";
 
@@ -55,7 +55,7 @@ export const webSearchTool = defineTool({
     description:
         "Search the web. Returns results with titles, URLs, and snippets. Follow up with web_fetch " +
         "to read a specific result.",
-    kind: "network",
+    kind: TOOL_KIND.Network,
     schema,
 
     async execute({ query, maxResults }, ctx) {
