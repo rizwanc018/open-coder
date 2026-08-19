@@ -6,6 +6,7 @@ import { ShellView } from "./ShellView";
 import { ListDirView } from "./ListDirView";
 import { GrepView } from "./GrepView";
 import { GlobView } from "./GlobView";
+import { WebSearchView } from "./WebSearchView";
 
 const MAX_ARGS_LENGTH = 100;
 
@@ -17,6 +18,7 @@ const TOOL_LABELS: Record<string, string> = {
     shell: "Shell",
     grep: "Grep",
     glob: "Glob",
+    web_search: "Web Search",
 };
 
 const toolLabel = (name: string): string => TOOL_LABELS[name] ?? name;
@@ -45,6 +47,9 @@ const formatArguments = (name: string, args: Record<string, unknown>): string =>
         argValue += getValueOf(args, "path");
         argValue += ", pattern: ";
         argValue += `"${getValueOf(args, "pattern")}" `;
+    }
+    if (name === "web_search") {
+        argValue = `"${getValueOf(args, "query")}"`;
     }
     if (argValue) return truncateStart(argValue);
     return truncateStart(JSON.stringify(args) ?? String(args));
@@ -117,6 +122,8 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
                     toolName={message.name}
                     path={getValueOf(message.arguments, "path")}
                 />
+            ) : message.name === "web_search" ? (
+                <WebSearchView metadata={message.metadata} output={message.resultOutput} />
             ) : readLine ? (
                 <text fg={theme.muted}>{`  └ ${readLine}`}</text>
             ) : message.resultOutput ? (
