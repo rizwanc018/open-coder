@@ -7,6 +7,7 @@ import { ListDirView } from "./ListDirView";
 import { GrepView } from "./GrepView";
 import { GlobView } from "./GlobView";
 import { WebSearchView } from "./WebSearchView";
+import { WebFetchView } from "./WebFetchView";
 
 const MAX_ARGS_LENGTH = 100;
 
@@ -19,6 +20,7 @@ const TOOL_LABELS: Record<string, string> = {
     grep: "Grep",
     glob: "Glob",
     web_search: "Web Search",
+    web_fetch: "Fetch",
 };
 
 const toolLabel = (name: string): string => TOOL_LABELS[name] ?? name;
@@ -50,6 +52,9 @@ const formatArguments = (name: string, args: Record<string, unknown>): string =>
     }
     if (name === "web_search") {
         argValue = `"${getValueOf(args, "query")}"`;
+    }
+    if (name === "web_fetch") {
+        argValue = `"${getValueOf(args, "url")}"`;
     }
     if (argValue) return truncateStart(argValue);
     return truncateStart(JSON.stringify(args) ?? String(args));
@@ -124,15 +129,20 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
                 />
             ) : message.name === "web_search" ? (
                 <WebSearchView metadata={message.metadata} output={message.resultOutput} />
+            ) : message.name === "web_fetch" ? (
+                <WebFetchView metadata={message.metadata} output={message.resultOutput} />
             ) : readLine ? (
                 <text fg={theme.muted}>{`  └ ${readLine}`}</text>
             ) : message.resultOutput ? (
                 <box flexDirection="column">
-                    {message.resultOutput.split("\n").map((line, index) => (
-                        <text key={index} fg={message.status === "error" ? theme.error : theme.muted}>
-                            {`  ${line}`}
-                        </text>
-                    ))}
+                    {message.resultOutput
+                        .split("\n")
+                        .slice(0, 25)
+                        .map((line, index) => (
+                            <text key={index} fg={message.status === "error" ? theme.error : theme.muted}>
+                                {`  ${line}`}
+                            </text>
+                        ))}
                 </box>
             ) : null}
         </box>
