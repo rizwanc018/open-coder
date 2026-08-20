@@ -8,8 +8,10 @@ import { GrepView } from "./GrepView";
 import { GlobView } from "./GlobView";
 import { WebSearchView } from "./WebSearchView";
 import { WebFetchView } from "./WebFetchView";
+import { TodoView } from "./TodoView";
 
 const MAX_ARGS_LENGTH = 100;
+const MAX_VISIBLE_LINES = 12;
 
 const TOOL_LABELS: Record<string, string> = {
     read_file: "Read",
@@ -21,6 +23,7 @@ const TOOL_LABELS: Record<string, string> = {
     glob: "Glob",
     web_search: "Web Search",
     web_fetch: "Fetch",
+    todos: "Todos",
 };
 
 const toolLabel = (name: string): string => TOOL_LABELS[name] ?? name;
@@ -55,6 +58,12 @@ const formatArguments = (name: string, args: Record<string, unknown>): string =>
     }
     if (name === "web_fetch") {
         argValue = `"${getValueOf(args, "url")}"`;
+    }
+    if (name === "todos") {
+        argValue = "action: ";
+        argValue += getValueOf(args, "action");
+        argValue += ", content: ";
+        argValue += `"${getValueOf(args, "content")}" `;
     }
     if (argValue) return truncateStart(argValue);
     return truncateStart(JSON.stringify(args) ?? String(args));
@@ -131,13 +140,15 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
                 <WebSearchView metadata={message.metadata} output={message.resultOutput} />
             ) : message.name === "web_fetch" ? (
                 <WebFetchView metadata={message.metadata} output={message.resultOutput} />
+            ) : message.name === "todos" ? (
+                <TodoView metadata={message.metadata} output={message.resultOutput} status={message.status} />
             ) : readLine ? (
                 <text fg={theme.muted}>{`  └ ${readLine}`}</text>
             ) : message.resultOutput ? (
                 <box flexDirection="column">
                     {message.resultOutput
                         .split("\n")
-                        .slice(0, 25)
+                        .slice(0, MAX_VISIBLE_LINES)
                         .map((line, index) => (
                             <text key={index} fg={message.status === "error" ? theme.error : theme.muted}>
                                 {`  ${line}`}
