@@ -25,6 +25,7 @@ export const configSchema = z.object({
     developerInstructions: z.string().nullable().default(null),
     userInstructions: z.string().nullable().default(null),
     shellEnvironment: shellEnvironmentPolicySchema.prefault({}),
+    allowedTools: z.array(z.string()).nullable().default(null),
     debug: z.boolean().default(false),
 });
 

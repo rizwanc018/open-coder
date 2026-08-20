@@ -2,6 +2,7 @@ import { editFileTool } from "./built-in/editFile";
 import { globTool } from "./built-in/glob";
 import { grepTool } from "./built-in/grep";
 import { listDirTool } from "./built-in/listDir";
+import { memoryTool } from "./built-in/memory";
 import { readFileTool } from "./built-in/readFile";
 import { shellTool } from "./built-in/shell";
 import { todostool } from "./built-in/todo";
@@ -22,5 +23,6 @@ export const getBuiltinTools = (): AnyTool[] => {
         webSearchTool,
         webFetchTool,
         todostool,
+        memoryTool,
     ] as AnyTool[];
 };

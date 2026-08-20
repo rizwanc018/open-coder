@@ -8,7 +8,7 @@ const CONFIG_FILE_NAME = "config.json";
 const AGENT_MD_FILE = "AGENT.md";
 
 const getConfigDir = () => userConfigDir("open-coder");
-const getDataDir = () => userDataDir("open-coder");
+export const getDataDir = () => userDataDir("open-coder");
 const getSystemConfigFile = () => join(getConfigDir(), CONFIG_FILE_NAME);
 const getProjectConfigFile = (cwd: string) => {
     const configFile = join(resolve(cwd), ".open-coder", CONFIG_FILE_NAME);

@@ -6,11 +6,13 @@ import { err, toToolSchema, type AnyTool, type ToolContext, type ToolResult, typ
 export interface InvokeOptions {
     cwd: string;
     signal?: AbortSignal;
-    config: Config
+    config: Config;
 }
 
 export class ToolRegistry {
     private readonly _tools = new Map<string, AnyTool>();
+
+    constructor(private readonly config: Config) {}
 
     register(tool: AnyTool): void {
         this._tools.set(tool.name, tool);
@@ -22,8 +24,12 @@ export class ToolRegistry {
 
     getTools(): AnyTool[] {
         const all = [...this._tools.values()];
+        const allowed = this.config.allowedTools;
 
-        return all;
+        if (!allowed) return all;
+
+        const allowSet = new Set(allowed);
+        return all.filter((tool) => allowSet.has(tool.name));
     }
 
     getSchemas(): ToolSchema[] {
@@ -74,10 +80,12 @@ export class ToolRegistry {
     }
 }
 
-export const createToolDefaultRegistry = (): {
+export const createToolDefaultRegistry = (
+    config: Config,
+): {
     toolRegistry: ToolRegistry;
 } => {
-    const toolRegistry = new ToolRegistry();
+    const toolRegistry = new ToolRegistry(config);
 
     for (const tool of getBuiltinTools()) {
         toolRegistry.register(tool);

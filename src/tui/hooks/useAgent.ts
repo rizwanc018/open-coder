@@ -34,9 +34,9 @@ export function useAgent(config: Config) {
     const agentRef = useRef<Agent | null>(null);
     const abortRef = useRef<AbortController | null>(null);
 
-    // const msgs = data as UIMessage[];
-    // const [messages, setMessages] = useState<UIMessage[]>(msgs);
-    const [messages, setMessages] = useState<UIMessage[]>([]);
+    const msgs = data as UIMessage[];
+    const [messages, setMessages] = useState<UIMessage[]>(msgs);
+    // const [messages, setMessages] = useState<UIMessage[]>([]);
 
     const [isWorking, setIsWorking] = useState(false);
 

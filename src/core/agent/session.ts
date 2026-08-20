@@ -3,6 +3,7 @@ import { LLMClient } from "../client/llm_client";
 import { ContextManager } from "../context/manager";
 import { createToolDefaultRegistry, type ToolRegistry } from "../tools/registry";
 import { randomUUID } from "node:crypto";
+import { memoryAsPromptSection } from "../tools/built-in/memory";
 
 export class Session {
     readonly _client: LLMClient | null;
@@ -18,10 +19,15 @@ export class Session {
     constructor(config: Config) {
         this._config = config;
         this._client = new LLMClient(config);
-        this._contextManager = new ContextManager(config);
 
-        const { toolRegistry } = createToolDefaultRegistry();
+        const { toolRegistry } = createToolDefaultRegistry(this._config);
         this._toolRegistry = toolRegistry;
+
+        this._contextManager = new ContextManager(
+            config,
+            memoryAsPromptSection(),
+            this._toolRegistry.getTools(),
+        );
 
         this.sessionId = randomUUID();
         this.createdAt = new Date();

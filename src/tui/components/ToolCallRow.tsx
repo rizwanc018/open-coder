@@ -9,6 +9,8 @@ import { GlobView } from "./GlobView";
 import { WebSearchView } from "./WebSearchView";
 import { WebFetchView } from "./WebFetchView";
 import { TodoView } from "./TodoView";
+import { MemoryView } from "./MemoryView";
+import { debug } from "../../shared/debug";
 
 const MAX_ARGS_LENGTH = 100;
 const MAX_VISIBLE_LINES = 12;
@@ -24,6 +26,7 @@ const TOOL_LABELS: Record<string, string> = {
     web_search: "Web Search",
     web_fetch: "Fetch",
     todos: "Todos",
+    memory: "Memory",
 };
 
 const toolLabel = (name: string): string => TOOL_LABELS[name] ?? name;
@@ -40,26 +43,26 @@ const formatArguments = (name: string, args: Record<string, unknown>): string =>
 
     if (name === "read_file" || name === "write_file" || name === "edit_file" || name === "list_dir") {
         argValue = getValueOf(args, "path");
-    }
-    if (name === "shell") {
+    } else if (name === "shell") {
         argValue = getValueOf(args, "command");
-    }
-    if (name === "shell") {
+    } else if (name === "shell") {
         argValue = getValueOf(args, "command");
-    }
-    if (name === "grep" || name === "glob") {
+    } else if (name === "grep" || name === "glob") {
         argValue = "path: ";
         argValue += getValueOf(args, "path");
         argValue += ", pattern: ";
         argValue += `"${getValueOf(args, "pattern")}" `;
-    }
-    if (name === "web_search") {
+    } else if (name === "web_search") {
         argValue = `"${getValueOf(args, "query")}"`;
-    }
-    if (name === "web_fetch") {
+    } else if (name === "web_fetch") {
         argValue = `"${getValueOf(args, "url")}"`;
-    }
-    if (name === "todos") {
+    } else if (name === "memory") {
+        argValue = getValueOf(args, "action")?.toUpperCase();
+        const key = getValueOf(args, "key");
+        const value = getValueOf(args, "value");
+        if (value) argValue += ` {${key}:"${value}"}`;
+        else if (key) argValue += ` "${key}" `;
+    } else if (name === "todos") {
         argValue = "action: ";
         argValue += getValueOf(args, "action");
         argValue += ", content: ";
@@ -142,6 +145,12 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
                 <WebFetchView metadata={message.metadata} output={message.resultOutput} />
             ) : message.name === "todos" ? (
                 <TodoView metadata={message.metadata} output={message.resultOutput} status={message.status} />
+            ) : message.name === "memory" ? (
+                <MemoryView
+                    metadata={message.metadata}
+                    output={message.resultOutput}
+                    status={message.status}
+                />
             ) : readLine ? (
                 <text fg={theme.muted}>{`  └ ${readLine}`}</text>
             ) : message.resultOutput ? (
