@@ -57,7 +57,7 @@ const formatArguments = (name: string, args: Record<string, unknown>): string =>
     } else if (name === "web_fetch") {
         argValue = `"${getValueOf(args, "url")}"`;
     } else if (name === "memory") {
-        argValue = getValueOf(args, "action")?.toUpperCase();
+        argValue = getValueOf(args, "action");
         const key = getValueOf(args, "key");
         const value = getValueOf(args, "value");
         if (value) argValue += ` {${key}:"${value}"}`;
