@@ -9,6 +9,7 @@ export const TOOL_KIND = {
     Network: "network",
     Memory: "memory",
     Mcp: "mcp",
+    Subagent: "subagent",
 } as const;
 
 export type ToolKind = (typeof TOOL_KIND)[keyof typeof TOOL_KIND];
@@ -38,7 +39,7 @@ export interface ToolResult {
     metadata?: Record<string, unknown>;
     truncated?: boolean;
     diff?: FileDiff;
-    shell?: ShellExecution
+    shell?: ShellExecution;
 }
 
 export interface ToolSchema {

@@ -1,6 +1,7 @@
 import { getBuiltinTools } from ".";
 import type { Config } from "../config/config";
 import { errorMessage } from "../utils/error";
+import { createSubagentTool, getDefaultSubagentDefinitions } from "./subAgent";
 import { err, toToolSchema, type AnyTool, type ToolContext, type ToolResult, type ToolSchema } from "./types";
 
 export interface InvokeOptions {
@@ -47,6 +48,12 @@ export class ToolRegistry {
     ): Promise<ToolResult> {
         const { cwd, signal, config } = options;
 
+        const allowed = this.config.allowedTools;
+        
+        if (allowed && !allowed.includes(name)) {
+            return err(`Tool '${name}' is not available in this context`);
+        }
+
         const tool = this.get(name);
         if (!tool) {
             return err(`Unknown tool: ${name}`, { metadata: { toolName: name } });
@@ -89,6 +96,10 @@ export const createToolDefaultRegistry = (
 
     for (const tool of getBuiltinTools()) {
         toolRegistry.register(tool);
+    }
+
+    for (const definition of getDefaultSubagentDefinitions()) {
+        toolRegistry.register(createSubagentTool(definition));
     }
 
     return { toolRegistry };

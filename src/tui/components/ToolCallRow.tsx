@@ -11,6 +11,7 @@ import { WebFetchView } from "./WebFetchView";
 import { TodoView } from "./TodoView";
 import { MemoryView } from "./MemoryView";
 import { debug } from "../../shared/debug";
+import { SubagentView } from "./SubagentView";
 
 const MAX_ARGS_LENGTH = 100;
 const MAX_VISIBLE_LINES = 12;
@@ -29,11 +30,22 @@ const TOOL_LABELS: Record<string, string> = {
     memory: "Memory",
 };
 
-const toolLabel = (name: string): string => TOOL_LABELS[name] ?? name;
+const toolLabel = (name: string): string => {
+    if (name.startsWith("subagent_")) {
+        const nameWithoutPrefix = name.slice("subagent_".length);
+
+        return nameWithoutPrefix
+            .split("_")
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(" ");
+    }
+    return TOOL_LABELS[name] ?? name;
+};
 
 const truncateStart = (text: string): string =>
     text.length > MAX_ARGS_LENGTH ? `…${text.slice(text.length - MAX_ARGS_LENGTH)}` : text;
-
+const truncateEnd = (text: string): string =>
+    text.length > MAX_ARGS_LENGTH ? `${text.slice(0, MAX_ARGS_LENGTH)}…` : text;
 const getValueOf = (args: Record<string, unknown>, key: string) => {
     return typeof args[key] === "string" ? (args[key] as string) : null;
 };
@@ -67,6 +79,9 @@ const formatArguments = (name: string, args: Record<string, unknown>): string =>
         argValue += getValueOf(args, "action");
         argValue += ", content: ";
         argValue += `"${getValueOf(args, "content")}" `;
+    } else if (name.startsWith("subagent_")) {
+        argValue = getValueOf(args, "goal");
+        if (argValue) return truncateEnd(argValue);
     }
     if (argValue) return truncateStart(argValue);
     return truncateStart(JSON.stringify(args) ?? String(args));
@@ -151,6 +166,8 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
                     output={message.resultOutput}
                     status={message.status}
                 />
+            ) : message.name.startsWith("subagent_") ? (
+                <SubagentView message={message} />
             ) : readLine ? (
                 <text fg={theme.muted}>{`  └ ${readLine}`}</text>
             ) : message.resultOutput ? (
