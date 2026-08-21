@@ -7,7 +7,7 @@ import { configSchema, type Config } from "./config";
 const CONFIG_FILE_NAME = "config.json";
 const AGENT_MD_FILE = "AGENT.md";
 
-const getConfigDir = () => userConfigDir("open-coder");
+export const getConfigDir = () => userConfigDir("open-coder");
 export const getDataDir = () => userDataDir("open-coder");
 const getSystemConfigFile = () => join(getConfigDir(), CONFIG_FILE_NAME);
 const getProjectConfigFile = (cwd: string) => {

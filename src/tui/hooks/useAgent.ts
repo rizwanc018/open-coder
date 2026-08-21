@@ -31,7 +31,7 @@ export type UIMessage = TextMessage | ToolMessage;
 let nextId = 0;
 
 export function useAgent(config: Config) {
-    const agentRef = useRef<Agent | null>(null);
+    const agentRef = useRef<Promise<Agent> | null>(null);
     const abortRef = useRef<AbortController | null>(null);
 
     // const msgs = data as UIMessage[];
@@ -40,15 +40,18 @@ export function useAgent(config: Config) {
 
     const [isWorking, setIsWorking] = useState(false);
 
-    const getAgent = (): Agent => {
-        if (!agentRef.current) agentRef.current = new Agent(config);
+    // Cache the promise rather than the resolved Agent: concurrent callers then
+    // share one in-flight construction instead of racing to create two.
+    const getAgent = (): Promise<Agent> => {
+        agentRef.current ??= Agent.create(config);
         return agentRef.current;
     };
 
     useEffect(() => {
         return () => {
             abortRef.current?.abort();
-            agentRef.current?.close();
+            // May still be constructing on unmount; close it once it lands.
+            agentRef.current?.then((agent) => agent.close()).catch(() => {});
             agentRef.current = null;
         };
     }, []);
@@ -85,7 +88,7 @@ export function useAgent(config: Config) {
             };
 
             try {
-                for await (const event of getAgent().run(text, abort.signal)) {
+                for await (const event of (await getAgent()).run(text, abort.signal)) {
                     switch (event.type) {
                         case "text_delta": {
                             if (assistantId === null) {

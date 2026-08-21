@@ -22,7 +22,7 @@ const run = async () => {
         process.exit(1);
     }
 
-    const client = new Agent(config);
+    const client = await Agent.create(config);
     for await (const event of client.run("read src/index.ts")) {
         console.log(JSON.stringify(event, null, 2));
     }

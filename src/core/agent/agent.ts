@@ -9,8 +9,13 @@ export class Agent {
     session: Session;
     _closed = false;
 
-    constructor(config: Config) {
-        this.session = new Session(config);
+    /** Use {@link Agent.create} — session setup performs async tool discovery. */
+    private constructor(session: Session) {
+        this.session = session;
+    }
+
+    static async create(config: Config): Promise<Agent> {
+        return new Agent(await Session.create(config));
     }
 
     private _getClient(): LLMClient {

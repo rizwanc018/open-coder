@@ -66,7 +66,7 @@ export const createSubagentTool = (definition: SubagentDefinition): AnyTool => {
             const timeout = AbortSignal.timeout(timeoutSeconds * 1000);
             const signal = ctx.signal ? AbortSignal.any([ctx.signal, timeout]) : timeout;
 
-            const agent = new Agent(subConfig);
+            const agent = await Agent.create(subConfig);
 
             try {
                 for await (const event of agent.run(prompt, signal)) {

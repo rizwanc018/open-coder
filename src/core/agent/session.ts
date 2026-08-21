@@ -4,6 +4,7 @@ import { ContextManager } from "../context/manager";
 import { createToolDefaultRegistry, type ToolRegistry } from "../tools/registry";
 import { randomUUID } from "node:crypto";
 import { memoryAsPromptSection } from "../tools/built-in/memory";
+import { ToolDiscoveryManager } from "../tools/discovery";
 
 export class Session {
     readonly _client: LLMClient | null;
@@ -16,23 +17,36 @@ export class Session {
     updatedAt: Date;
     turnCount: number;
 
-    constructor(config: Config) {
+
+    private constructor(
+        config: Config,
+        client: LLMClient,
+        toolRegistry: ToolRegistry,
+        contextManager: ContextManager,
+    ) {
         this._config = config;
-        this._client = new LLMClient(config);
-
-        const { toolRegistry } = createToolDefaultRegistry(this._config);
+        this._client = client;
         this._toolRegistry = toolRegistry;
-
-        this._contextManager = new ContextManager(
-            config,
-            memoryAsPromptSection(),
-            this._toolRegistry.getTools(),
-        );
+        this._contextManager = contextManager;
 
         this.sessionId = randomUUID();
         this.createdAt = new Date();
         this.updatedAt = new Date();
         this.turnCount = 0;
+    }
+
+    static async create(config: Config): Promise<Session> {
+        const client = new LLMClient(config);
+        const { toolRegistry } = createToolDefaultRegistry(config);
+        await new ToolDiscoveryManager(config, toolRegistry).discoverAll();
+
+        const contextManager = new ContextManager(
+            config,
+            memoryAsPromptSection(),
+            toolRegistry.getTools(),
+        );
+
+        return new Session(config, client, toolRegistry, contextManager);
     }
 
     incrementTurn(): number {
