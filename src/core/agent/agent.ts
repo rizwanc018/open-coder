@@ -9,7 +9,6 @@ export class Agent {
     session: Session;
     _closed = false;
 
-    /** Use {@link Agent.create} — session setup performs async tool discovery. */
     private constructor(session: Session) {
         this.session = session;
     }
@@ -29,6 +28,7 @@ export class Agent {
 
     private async *_agentic_loop(signal?: AbortSignal): AsyncGenerator<AgentEvent> {
         this._assertOpen();
+        const { contextManager, compactor } = this.session;
 
         const toolSchemas = this.session._toolRegistry.getSchemas();
         for (let turn = 0; turn < this.session._config.maxTurns; turn++) {
@@ -37,7 +37,18 @@ export class Agent {
             const toolCalls: ToolCall[] = [];
             let errored: boolean = false;
 
-            const messages = this.session._contextManager.getMessages();
+            if (contextManager.needsCompression()) {
+                yield { type: "compaction_start" };
+
+                const { summary, usage: compactionUsage } = await compactor.compact(contextManager);
+
+                if (summary) contextManager.replaceWithSummary(summary);
+                if (compactionUsage) contextManager.recordCost(compactionUsage);
+
+                yield { type: "compaction_end", ok: Boolean(summary) };
+            }
+
+            const messages = contextManager.getMessages();
             this.session.incrementTurn();
 
             for await (const event of this._getClient().chat_completion(messages, {
@@ -78,7 +89,9 @@ export class Agent {
 
             if (errored) return;
 
-            this.session._contextManager.addAssistantMessage(responseText, toolCalls);
+            if (usage) contextManager.recordUsage(usage);
+
+            this.session.contextManager.addAssistantMessage(responseText, toolCalls);
 
             if (responseText) {
                 yield { type: "text_complete", content: responseText, usage };
@@ -105,7 +118,7 @@ export class Agent {
 
                 const resultContent = result.success ? result.output : (result.error ?? result.output ?? "");
 
-                this.session._contextManager.addToolResult(tc.callId, resultContent);
+                this.session.contextManager.addToolResult(tc.callId, resultContent);
 
                 yield {
                     type: "tool_call_complete",
@@ -125,7 +138,7 @@ export class Agent {
 
     async *run(message: string, signal?: AbortSignal): AsyncGenerator<AgentEvent> {
         yield { type: "agent_start", message };
-        this.session._contextManager.addUserMessage(message);
+        this.session.contextManager.addUserMessage(message);
 
         let final_response: string | null = null;
         let usage: TokenUsage | null = null;

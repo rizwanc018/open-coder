@@ -7,7 +7,7 @@ const modelConfigSchema = z.object(
     {
         name: z.string(MISSING_MODEL).min(1, MISSING_MODEL),
         temperature: z.number().min(0).max(2).default(1),
-        contextWindow: z.number().int().positive().default(500_000),
+        contextWindow: z.number().int().positive().default(500_000),//500_000
     },
     MISSING_MODEL,
 );

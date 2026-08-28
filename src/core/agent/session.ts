@@ -5,18 +5,18 @@ import { createToolDefaultRegistry, type ToolRegistry } from "../tools/registry"
 import { randomUUID } from "node:crypto";
 import { memoryAsPromptSection } from "../tools/built-in/memory";
 import { ToolDiscoveryManager } from "../tools/discovery";
+import { ChatCompactor } from "../context/compaction";
 
 export class Session {
     readonly _client: LLMClient | null;
     readonly _toolRegistry: ToolRegistry;
     readonly _config: Config;
-    _contextManager: ContextManager;
-
     readonly sessionId: string;
     readonly createdAt: Date;
+    contextManager: ContextManager;
+    compactor: ChatCompactor;
     updatedAt: Date;
     turnCount: number;
-
 
     private constructor(
         config: Config,
@@ -27,7 +27,8 @@ export class Session {
         this._config = config;
         this._client = client;
         this._toolRegistry = toolRegistry;
-        this._contextManager = contextManager;
+        this.contextManager = contextManager;
+        this.compactor = new ChatCompactor(this._client);
 
         this.sessionId = randomUUID();
         this.createdAt = new Date();
@@ -40,11 +41,7 @@ export class Session {
         const { toolRegistry } = createToolDefaultRegistry(config);
         await new ToolDiscoveryManager(config, toolRegistry).discoverAll();
 
-        const contextManager = new ContextManager(
-            config,
-            memoryAsPromptSection(),
-            toolRegistry.getTools(),
-        );
+        const contextManager = new ContextManager(config, memoryAsPromptSection(), toolRegistry.getTools());
 
         return new Session(config, client, toolRegistry, contextManager);
     }

@@ -8,11 +8,11 @@ import { validateConfig, type Config } from "../core/config/config";
 import { errorMessage } from "../core/utils/error";
 
 function App({ config }: { config: Config }) {
-    const { messages, isWorking, sendMessage } = useAgent(config);
+    const { messages, isWorking, sendMessage, compaction } = useAgent(config);
 
     return (
         <box flexDirection="column" width="100%" height="100%">
-            <MessageList messages={messages} isWorking={isWorking} />
+            <MessageList messages={messages} isWorking={isWorking} compaction={compaction} />
             <Inputbar onSubmit={sendMessage} disabled={isWorking} />
         </box>
     );

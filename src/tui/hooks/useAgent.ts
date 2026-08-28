@@ -5,6 +5,7 @@ import { debug, writelog } from "../../shared/debug";
 import { toUnifiedDiff } from "../../core/utils/diff";
 import type { ShellExecution } from "../../core/tools/types";
 import data from "../../../logs/message.json";
+import type { CompactionState } from "../components/CompactionStatusView";
 
 export type TextMessage = {
     id: number;
@@ -34,11 +35,10 @@ export function useAgent(config: Config) {
     const agentRef = useRef<Promise<Agent> | null>(null);
     const abortRef = useRef<AbortController | null>(null);
 
-    // const msgs = data as UIMessage[];
-    // const [messages, setMessages] = useState<UIMessage[]>(msgs);
     const [messages, setMessages] = useState<UIMessage[]>([]);
 
     const [isWorking, setIsWorking] = useState(false);
+    const [compaction, setCompaction] = useState<CompactionState>({ status: "idle" });
 
     // Cache the promise rather than the resolved Agent: concurrent callers then
     // share one in-flight construction instead of racing to create two.
@@ -67,7 +67,9 @@ export function useAgent(config: Config) {
 
             const abort = new AbortController();
             abortRef.current = abort;
+
             setIsWorking(true);
+            setCompaction({ status: "idle" });
 
             const userId = ++nextId;
             const firstAssistantId = ++nextId;
@@ -110,6 +112,16 @@ export function useAgent(config: Config) {
                             }
                             break;
                         }
+
+                        case "compaction_start":
+                            setCompaction({ status: "compacting" });
+                            break;
+
+                        case "compaction_end":
+                            setCompaction({
+                                status: event.ok ? "completed" : "failed",
+                            });
+                            break;
 
                         case "tool_call_start": {
                             const id = ++nextId;
@@ -177,5 +189,11 @@ export function useAgent(config: Config) {
         abortRef.current?.abort();
     }, []);
 
-    return { messages, isWorking, sendMessage, cancel };
+    return {
+        messages,
+        isWorking,
+        compaction,
+        sendMessage,
+        cancel,
+    };
 }

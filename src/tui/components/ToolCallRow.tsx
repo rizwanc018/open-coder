@@ -10,7 +10,6 @@ import { WebSearchView } from "./WebSearchView";
 import { WebFetchView } from "./WebFetchView";
 import { TodoView } from "./TodoView";
 import { MemoryView } from "./MemoryView";
-import { debug } from "../../shared/debug";
 import { SubagentView } from "./SubagentView";
 
 const MAX_ARGS_LENGTH = 100;

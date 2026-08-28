@@ -1,9 +1,24 @@
-
 export interface TokenUsage {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
     cachedTokens: number;
+}
+
+export const EMPTY_USAGE: TokenUsage = {
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    cachedTokens: 0,
+};
+
+export function addUsage(a: TokenUsage, b: TokenUsage): TokenUsage {
+    return {
+        promptTokens: a.promptTokens + b.promptTokens,
+        completionTokens: a.completionTokens + b.completionTokens,
+        totalTokens: a.totalTokens + b.totalTokens,
+        cachedTokens: a.cachedTokens + b.cachedTokens,
+    };
 }
 
 export type StreamEvent =
