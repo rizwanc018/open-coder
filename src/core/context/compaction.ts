@@ -1,6 +1,6 @@
 import type { LLMClient } from "../client/llm_client";
 import type { TokenUsage } from "../client/types";
-import type { ContextManager } from "./manager";
+import type { CompactionPlan, ContextManager } from "./manager";
 import { getCompactionPrompt } from "../prompts/system";
 import { truncateChars } from "../utils/text";
 import type { ChatMessages } from "@openrouter/sdk/models";
@@ -8,7 +8,11 @@ import type { ChatMessages } from "@openrouter/sdk/models";
 export interface CompactionResult {
     summary: string | null;
     usage: TokenUsage | null;
+    plan: CompactionPlan | null;
 }
+// Then the prune tier as the fallback for when summarization fails.
+
+const EMPTY_RESULT: CompactionResult = { summary: null, usage: null, plan: null };
 
 export class ChatCompactor {
     private readonly _client: LLMClient;
@@ -18,30 +22,30 @@ export class ChatCompactor {
     }
 
     async compact(context: ContextManager): Promise<CompactionResult> {
-        const messages = context.getMessages();
+        const plan = context.planCompaction();
 
-        if (messages.length < 3) return { summary: null, usage: null };
+        if (!plan || plan.prefix.length < 2) return EMPTY_RESULT;
 
         const request: ChatMessages[] = [
             { role: "system", content: getCompactionPrompt() },
-            { role: "user", content: this.formatChatHistory(messages) },
+            { role: "user", content: this.formatChatHistory(plan.prefix) },
         ];
 
         try {
             for await (const event of this._client.chat_completion(request, { stream: false })) {
                 if (event.type === "message_complete" && event.text_delta) {
-                    return { summary: event.text_delta, usage: event.usage };
+                    return { summary: event.text_delta, usage: event.usage, plan };
                 }
-                if (event.type === "error") return { summary: null, usage: null };
+                if (event.type === "error") return EMPTY_RESULT;
             }
         } catch {
-            return { summary: null, usage: null };
+            return EMPTY_RESULT;
         }
-        return { summary: null, usage: null };
+        return EMPTY_RESULT;
     }
 
     private formatChatHistory(messages: ChatMessages[]): string {
-        const parts = ["Here is the conversation that needs to be continued:\n"];
+        const parts = ["Here is the earlier portion of the conversation to compact:\n"];
 
         for (const msg of messages) {
             const content = msg.content ?? "";

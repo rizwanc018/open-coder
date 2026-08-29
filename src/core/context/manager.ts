@@ -7,14 +7,20 @@ import type { Config } from "../config/config";
 import type { AnyTool } from "../tools/types";
 import { addUsage, EMPTY_USAGE, type TokenUsage } from "../client/types";
 
-const PRUNE_PROTECT_TOKENS = 40_000;
-/** Don't bother pruning unless we'd reclaim at least this much. */
-const PRUNE_MINIMUM_TOKENS = 20_000;
 const COMPRESSION_THRESHOLD = 0.8;
+const TAIL_BUDGET_RATIO = 0.15;
+const TAIL_MAX_MESSAGES = 20;
+
+export interface CompactionPlan {
+    prefix: ChatMessages[];
+    tailStart: number;
+    tailTokens: number;
+}
 
 export class ContextManager {
     private readonly _config: Config;
     private readonly _systemPrompt: string;
+    private readonly _systemPromptTokens: number;
     private _messages: MessageItem[] = [];
     private latestUsage: TokenUsage = EMPTY_USAGE;
     totalUsage: TokenUsage = EMPTY_USAGE;
@@ -22,6 +28,7 @@ export class ContextManager {
     constructor(config: Config, userMemory: string | null, tools: AnyTool[]) {
         this._config = config;
         this._systemPrompt = getSystemPrompt(config, userMemory, tools);
+        this._systemPromptTokens = countTokens(this._systemPrompt);
     }
 
     addUserMessage(content: string): void {
@@ -59,7 +66,6 @@ export class ContextManager {
         });
     }
 
-
     recordUsage(usage: TokenUsage): void {
         this.latestUsage = usage;
         this.totalUsage = addUsage(this.totalUsage, usage);
@@ -73,11 +79,14 @@ export class ContextManager {
         this.totalUsage = addUsage(this.totalUsage, usage);
     }
 
+    /** Tokens held by the conversation alone. Use this to measure a delta. */
+    private _messageTokens(): number {
+        return this._messages.reduce((total, item) => total + item.tokenCount, 0);
+    }
+
+    /** Tokens the next request will occupy in the window. Use this to measure against a budget. */
     getTokenCount(): number {
-        return this._messages.reduce(
-            (total, item) => total + item.tokenCount,
-            countTokens(this._systemPrompt),
-        );
+        return this._systemPromptTokens + this._messageTokens();
     }
 
     get contextTokens(): number {
@@ -107,10 +116,47 @@ export class ContextManager {
         return messages;
     }
 
-    replaceWithSummary(summary: string): void {
+    planCompaction(): CompactionPlan | null {
+        const tailStart = this._tailStart();
+        if (tailStart === 0) return null;
+
+        const prefix = this._messages.slice(0, tailStart).map((item) => item.message);
+        const tailTokens = this._messages
+            .slice(tailStart)
+            .reduce((total, item) => total + item.tokenCount, 0);
+
+        return { prefix, tailStart, tailTokens };
+    }
+
+    private _tailStart(): number {
+        const budget = Math.floor(
+            this._config.model.contextWindow * COMPRESSION_THRESHOLD * TAIL_BUDGET_RATIO,
+        );
+
+        let tokens = 0;
+        let start = this._messages.length;
+
+        for (let i = this._messages.length - 1; i >= 0; i--) {
+            const item = this._messages[i]!;
+            if (this._messages.length - i > TAIL_MAX_MESSAGES) break;
+            if (tokens + item.tokenCount > budget) break;
+            tokens += item.tokenCount;
+            start = i;
+        }
+        while (start < this._messages.length && this._messages[start]!.message.role === "tool") {
+            start++;
+        }
+
+        return start;
+    }
+
+    replaceWithSummary(summary: string, plan: CompactionPlan): void {
+        const tokensBefore = this._messageTokens();
+        const tail = this._messages.slice(plan.tailStart);
+
         const continuation = `# Context Restoration (Previous Session Compacted)
 
-The previous conversation was compacted because it hit the context limit. Below is a summary of the work so far.
+The earlier part of this conversation was compacted because it hit the context limit. Below is a summary of that work.
 
 **CRITICAL: Actions listed under "COMPLETED ACTIONS" are already done. DO NOT repeat them.**
 
@@ -120,7 +166,11 @@ ${summary}
 
 ---
 
-Resume from where we left off. Focus ONLY on the remaining tasks.`;
+${
+    tail.length > 0
+        ? "The messages that follow are the verbatim, uncompacted tail of the conversation — they are NOT covered by the summary above. Resume from the end of that tail and focus ONLY on the remaining tasks."
+        : "Resume from where we left off. Focus ONLY on the remaining tasks."
+}`;
 
         const acknowledgement = `I've reviewed the context from the previous session. I understand:
 - The original goal and what was requested
@@ -130,20 +180,28 @@ Resume from where we left off. Focus ONLY on the remaining tasks.`;
 
 I'll continue with the REMAINING tasks only, starting from where we left off.`;
 
-        const resume =
-            "Continue with the REMAINING work only. Do NOT repeat any completed actions. Proceed with the next step described above.";
-
-        this._messages = [
+        const head: MessageItem[] = [
             { message: { role: "user", content: continuation }, tokenCount: countTokens(continuation) },
-            {
-                message: { role: "assistant", content: acknowledgement },
-                tokenCount: countTokens(acknowledgement),
-            },
-            { message: { role: "user", content: resume }, tokenCount: countTokens(resume) },
         ];
 
-        // The provider-reported gauge now describes a history that no longer exists.
-        // Fall back to the local estimate; the next real completion corrects it.
+        if (tail[0]?.message.role !== "assistant") {
+            head.push({
+                message: { role: "assistant", content: acknowledgement },
+                tokenCount: countTokens(acknowledgement),
+            });
+        }
+        if (tail.length === 0) {
+            const resume =
+                "Continue with the REMAINING work only. Do NOT repeat any completed actions. Proceed with the next step described above.";
+            head.push({ message: { role: "user", content: resume }, tokenCount: countTokens(resume) });
+        }
+
+        this._messages = [...head, ...tail];
+
+        if (tail.length > 0 && this._messageTokens() >= tokensBefore) {
+            this._messages = head;
+        }
+
         this.latestUsage = { ...EMPTY_USAGE, totalTokens: this.getTokenCount() };
     }
 }

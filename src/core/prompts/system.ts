@@ -216,6 +216,10 @@ Your task is to create a loss-minimizing state snapshot that another
 coding agent can use to continue the work without access to the original
 conversation.
 
+You are shown only the EARLIER portion of the conversation. The most recent
+messages are retained verbatim and are not included below, so do not speculate
+about how the work concluded — summarize only what you are given.
+
 Do NOT write a general summary of the conversation.
 
 Preserve actionable state and information required for correct continuation.

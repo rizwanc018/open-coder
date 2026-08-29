@@ -40,9 +40,9 @@ export class Agent {
             if (contextManager.needsCompression()) {
                 yield { type: "compaction_start" };
 
-                const { summary, usage: compactionUsage } = await compactor.compact(contextManager);
+                const { summary, usage: compactionUsage, plan } = await compactor.compact(contextManager);
 
-                if (summary) contextManager.replaceWithSummary(summary);
+                if (summary && plan) contextManager.replaceWithSummary(summary, plan);
                 if (compactionUsage) contextManager.recordCost(compactionUsage);
 
                 yield { type: "compaction_end", ok: Boolean(summary) };
