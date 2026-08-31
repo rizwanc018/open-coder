@@ -9,6 +9,7 @@ export const theme = {
     border: "#292e42",
     highlight: "#7dcfff",
     accent: "#bb9af7",
+    background: "#16161e",
 
     // Roles
     user: "#7aa2f7",

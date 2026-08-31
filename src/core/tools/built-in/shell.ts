@@ -94,6 +94,17 @@ export const shellTool = defineTool({
     description: "Execute a shell command. Use this for running system commands, scripts, and CLI tools.",
     kind: TOOL_KIND.Shell,
     schema,
+    confirm({ command, timeout, cwd }) {
+        const blockedReason = getBlockedReason(command);
+
+        return {
+            toolName: "shell",
+            description: `${!!blockedReason ? "Execute (BLOCKED): " : "Execute: "}${command}`,
+            params: { command, timeout, cwd },
+            command,
+            isDangerous: !!blockedReason,
+        };
+    },
     async execute({ command, timeout, cwd: rawCwd }, ctx) {
         const blockedReason = getBlockedReason(command);
 

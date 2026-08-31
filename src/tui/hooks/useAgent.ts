@@ -46,7 +46,6 @@ export function useAgent(config: Config) {
     const requestApproval = useCallback(
         (confirmation: ToolConfirmation) =>
             new Promise<boolean>((resolve) => {
-                debug({ confirmation });
                 approvalResolver.current = resolve;
                 setApprovalRequest(confirmation);
             }),

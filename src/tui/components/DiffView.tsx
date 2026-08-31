@@ -15,11 +15,13 @@ export function DiffView({
     output,
     toolName,
     path,
+    showMessage = true,
 }: {
     diff: string;
     output: string | undefined;
     toolName: "write_file" | "edit_file" | string;
     path: string | null;
+    showMessage?: boolean;
 }) {
     const view = toolName === "edit_file" ? "split" : "unified";
     const { additions, deletions }: DiffStats = getDiffStats(diff);
@@ -29,7 +31,7 @@ export function DiffView({
 
     return (
         <box flexDirection="column">
-            <text fg={theme.muted}>{`  └  ${onelinemessage}`}</text>
+            {showMessage && <text fg={theme.muted}>{`  └  ${onelinemessage}`}</text>}
 
             <box marginTop={1} flexDirection="column">
                 <diff diff={diff} filetype={filetype} syntaxStyle={syntaxStyle} view={view} />

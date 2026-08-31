@@ -9,22 +9,6 @@ import { errorMessage } from "../core/utils/error";
 import { ApprovalDialog } from "./components/ApprovalDialog";
 
 function App({ config }: { config: Config }) {
-    const conf = {
-        toolName: "write_file",
-        description: "Create file: /home/rizwan/Desktop/open-coder/ello.js",
-        params: {
-            path: "ello.js",
-            content: "console.log('ello js');\n",
-        },
-        diff: {
-            path: "/home/rizwan/Desktop/open-coder/ello.js",
-            oldContent: "",
-            newContent: "console.log('ello js');\n",
-            isNewFile: true,
-        },
-        affectedPaths: ["/home/rizwan/Desktop/open-coder/ello.js"],
-        isDangerous: false,
-    };
 
     const { messages, isWorking, sendMessage, compaction, approvalRequest, resolveApproval } =
         useAgent(config);
@@ -32,8 +16,7 @@ function App({ config }: { config: Config }) {
         <box flexDirection="column" width="100%" height="100%">
             <MessageList messages={messages} isWorking={isWorking} compaction={compaction} />
             <Inputbar onSubmit={sendMessage} disabled={isWorking} />
-            {true && <ApprovalDialog confirmation={conf} onResolve={resolveApproval} />}
-            {/* {approvalRequest && <ApprovalDialog confirmation={approvalRequest} onResolve={resolveApproval} />} */}
+            {approvalRequest && <ApprovalDialog confirmation={approvalRequest} onResolve={resolveApproval} />}
         </box>
     );
 }

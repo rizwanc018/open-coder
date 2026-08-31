@@ -1,8 +1,12 @@
 import { TextAttributes } from "@opentui/core";
-import { useEffect } from "react";
 import { useKeyboard } from "@opentui/react";
+
 import type { ToolConfirmation } from "../../core/tools/types";
 import { theme } from "../theme";
+import { FileChangeView } from "./ApprovalDialog/FileChangeView.tsx";
+import { CommandView } from "./ApprovalDialog/CommandView.tsx";
+import { PathsView } from "./ApprovalDialog/PathsView.tsx";
+import { ParamsView } from "./ApprovalDialog/ParamsView.tsx";
 
 type ApprovalDialogProps = {
     confirmation: ToolConfirmation;
@@ -11,24 +15,13 @@ type ApprovalDialogProps = {
 
 const TOOL_LABELS: Record<string, string> = {
     shell: "Shell",
-    write_file: "Write",
-    edit_file: "Edit",
-    delete_file: "Delete",
+    write_file: "Write File",
+    edit_file: "Edit File",
 };
 
 const toolLabel = (name: string): string => TOOL_LABELS[name] ?? name;
 
-const truncate = (value: string, max = 100): string => {
-    if (value.length <= max) return value;
-    return `${value.slice(0, max - 1)}…`;
-};
-
-export function ApprovalDialog({ confirmation, onResolve }: ApprovalDialogProps) {
-    useEffect(() => {
-        // Approval dialogs should always start in a neutral state.
-        // The default action is denial if the user simply presses Enter.
-    }, [confirmation]);
-
+export const ApprovalDialog = ({ confirmation, onResolve }: ApprovalDialogProps) => {
     useKeyboard((key) => {
         switch (key.name) {
             case "y":
@@ -42,13 +35,15 @@ export function ApprovalDialog({ confirmation, onResolve }: ApprovalDialogProps)
         }
     });
 
-    const command = typeof confirmation.command === "string" ? confirmation.command : null;
-
-    const paths = Array.isArray(confirmation.affectedPaths)
-        ? confirmation.affectedPaths.filter((path): path is string => typeof path === "string")
-        : [];
+    const paths = (confirmation.affectedPaths ?? []).filter(
+        (path): path is string => typeof path === "string",
+    );
 
     const dangerous = confirmation.isDangerous === true;
+    const hasDiff = Boolean(confirmation.diff);
+    const hasCommand = typeof confirmation.command === "string" && confirmation.command.trim().length > 0;
+
+    const isFileOperation = confirmation.toolName === "write_file" || confirmation.toolName === "edit_file";
 
     return (
         <box
@@ -60,72 +55,70 @@ export function ApprovalDialog({ confirmation, onResolve }: ApprovalDialogProps)
             border
             borderStyle="rounded"
             borderColor={dangerous ? theme.error : theme.warning}
-            paddingX={1}
+            paddingX={2}
+            backgroundColor={theme.background}
         >
-            <text fg={dangerous ? theme.error : theme.warning} attributes={TextAttributes.BOLD}>
-                {dangerous ? "⚠ Permission required" : "Permission required"}
+            <box flexDirection="row">
+                <text fg={dangerous ? theme.error : theme.warning} attributes={TextAttributes.BOLD}>
+                    {dangerous ? "⚠ Permission required" : "Permission required"}
+                </text>
+
+                <text fg={theme.dim}>{"  "}</text>
+
+                <text fg={theme.tool} attributes={TextAttributes.BOLD}>
+                    {toolLabel(confirmation.toolName)}
+                </text>
+            </box>
+
+            <text fg={theme.assistant} >
+                {confirmation.description}
             </text>
 
-            <text fg={theme.muted} marginTop={1}>
-                {`${toolLabel(confirmation.toolName)} wants to perform an operation:`}
-            </text>
-
-            {command && (
-                <box flexDirection="column" marginTop={1}>
-                    {command.split("\n").map((line, index) => (
-                        <text key={index} fg={theme.assistant}>
-                            {`$ ${truncate(line)}`}
-                        </text>
-                    ))}
-                </box>
+            {isFileOperation && confirmation.diff && (
+                <FileChangeView diff={confirmation.diff} toolName={confirmation.toolName} />
             )}
 
-            {paths.length > 0 && (
-                <box flexDirection="column" marginTop={1}>
-                    <text fg={theme.muted}>{"Affected paths:"}</text>
+            {!isFileOperation && hasCommand && <CommandView command={confirmation.command!} />}
 
-                    {paths.slice(0, 6).map((path) => (
-                        <text key={path} fg={theme.muted}>
-                            {`  • ${truncate(path)}`}
-                        </text>
-                    ))}
+            <PathsView paths={paths} />
 
-                    {paths.length > 6 && <text fg={theme.dim}>{`  …and ${paths.length - 6} more`}</text>}
-                </box>
-            )}
-
-            {!command && paths.length === 0 && (
-                <box flexDirection="column" marginTop={1}>
-                    <text fg={theme.muted}>{"Parameters:"}</text>
-
-                    {Object.entries(confirmation.params ?? {}).map(([key, value]) => (
-                        <text key={key} fg={theme.muted}>
-                            {`  ${key}: ${truncate(
-                                typeof value === "string" ? value : JSON.stringify(value),
-                            )}`}
-                        </text>
-                    ))}
-                </box>
-            )}
+            {!hasCommand && !hasDiff && <ParamsView params={confirmation.params} />}
 
             {dangerous && (
-                <text fg={theme.error} marginTop={1}>
-                    {"This operation is potentially dangerous."}
-                </text>
+                <box
+                    marginTop={1}
+                    flexDirection="column"
+                    border
+                    borderStyle="rounded"
+                    borderColor={theme.error}
+                    paddingX={1}
+                >
+                    <text fg={theme.error} attributes={TextAttributes.BOLD}>
+                        {"⚠ Potentially dangerous operation"}
+                    </text>
+
+                    <text fg={theme.muted}>{"Review the operation carefully before continuing."}</text>
+                </box>
             )}
 
+            {/* Actions */}
             <box flexDirection="row" marginTop={1}>
                 <text fg={theme.muted}>{"Allow? "}</text>
+
                 <text fg={theme.success} attributes={TextAttributes.BOLD}>
                     {"[y]"}
                 </text>
-                <text fg={theme.muted}>{" yes  "}</text>
+
+                <text fg={theme.muted}>{"yes  "}</text>
+
                 <text fg={theme.error} attributes={TextAttributes.BOLD}>
                     {"[n]"}
                 </text>
-                <text fg={theme.muted}>{" no  "}</text>
+
+                <text fg={theme.muted}>{"no  "}</text>
+
                 <text fg={theme.dim}>{"[Esc] cancel"}</text>
             </box>
         </box>
     );
-}
+};

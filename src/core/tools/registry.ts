@@ -1,5 +1,4 @@
 import { getBuiltinTools } from ".";
-import { debug } from "../../shared/debug";
 import type { Config } from "../config/config";
 import type { ApprovalManager } from "../safety/approval";
 import { errorMessage } from "../utils/error";

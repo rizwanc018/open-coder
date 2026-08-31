@@ -67,6 +67,10 @@ const noMatchError = (content: string, oldString: string, path: string): ToolRes
     return err(message);
 };
 
+const replaceLiteral = (content: string, oldStr: string, newStr: string, all: boolean): string => {
+    return all ? content.split(oldStr).join(newStr) : content.replace(oldStr, () => newStr);
+};
+
 export const editFileTool = defineTool({
     name: "edit_file",
     description:
@@ -75,6 +79,34 @@ export const editFileTool = defineTool({
         "surgical edits. For creating new files or complete rewrites, use write_file instead.",
     kind: TOOL_KIND.Write,
     schema,
+
+    confirm({ path: rawPath, oldString, newString, replaceAll }, ctx) {
+        const path = resolvePath(ctx.cwd, rawPath);
+
+        if (!existsSync(path)) {
+            return {
+                toolName: "edit_file",
+                description: `Create new file: ${path}`,
+                params: { path: rawPath, oldString, newString, replaceAll },
+                diff: { path, oldContent: "", newContent: newString, isNewFile: true },
+                affectedPaths: [path],
+            };
+        }
+
+        const oldContent = readFileSync(path, "utf-8");
+
+        return {
+            toolName: "edit_file",
+            description: `Edit file: ${path}`,
+            params: { path: rawPath, oldString, newString, replaceAll },
+            diff: {
+                path,
+                oldContent,
+                newContent: replaceLiteral(oldContent, oldString, newString, replaceAll),
+            },
+            affectedPaths: [path],
+        };
+    },
 
     async execute({ path: rawPath, oldString, newString, replaceAll }, ctx) {
         const path = resolvePath(ctx.cwd, rawPath);
@@ -125,7 +157,6 @@ export const editFileTool = defineTool({
                 { metadata: { occurrences } },
             );
         }
-
 
         const newContent = replaceAll
             ? oldContent.split(oldString).join(newString)
