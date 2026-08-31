@@ -9,6 +9,14 @@ const schema = z.object({
     createDirectories: z.boolean().default(true).describe("Create parent directories if they don't exist"),
 });
 
+const readIfExists = (path: string): string => {
+    try {
+        return existsSync(path) ? readFileSync(path, "utf-8") : "";
+    } catch {
+        return "";
+    }
+};
+
 export const writeFileTool = defineTool({
     name: "write_file",
     description:
@@ -17,8 +25,25 @@ export const writeFileTool = defineTool({
         "replacing file contents. For partial modifications, use the edit tool instead.",
     kind: TOOL_KIND.Write,
     schema,
-    async execute({ path: rawPath, content, createDirectories }, ctx) {
+    confirm({ path: rawPath, content }, ctx) {
+        const path = resolvePath(ctx.cwd, rawPath);
+        const isNewFile = !existsSync(path);
 
+        return {
+            toolName: "write_file",
+            description: `${isNewFile ? "Create" : "Overwrite"} file: ${path}`,
+            params: { path: rawPath, content },
+            diff: {
+                path,
+                oldContent: readIfExists(path),
+                newContent: content,
+                isNewFile,
+            },
+            affectedPaths: [path],
+            isDangerous: !isNewFile,
+        };
+    },
+    async execute({ path: rawPath, content, createDirectories }, ctx) {
         const path = resolvePath(ctx.cwd, rawPath);
         const isNewFile = !existsSync(path);
         let oldContent = "";

@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { memoryAsPromptSection } from "../tools/built-in/memory";
 import { ToolDiscoveryManager } from "../tools/discovery";
 import { ChatCompactor } from "../context/compaction";
+import { ApprovalManager } from "../safety/approval";
 
 export class Session {
     readonly _client: LLMClient | null;
@@ -13,6 +14,8 @@ export class Session {
     readonly _config: Config;
     readonly sessionId: string;
     readonly createdAt: Date;
+    readonly approvals: ApprovalManager;
+
     contextManager: ContextManager;
     compactor: ChatCompactor;
     updatedAt: Date;
@@ -29,6 +32,7 @@ export class Session {
         this._toolRegistry = toolRegistry;
         this.contextManager = contextManager;
         this.compactor = new ChatCompactor(this._client);
+        this.approvals = new ApprovalManager(config.approval, config.cwd);
 
         this.sessionId = randomUUID();
         this.createdAt = new Date();

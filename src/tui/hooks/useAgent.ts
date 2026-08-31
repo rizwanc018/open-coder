@@ -3,7 +3,7 @@ import { Agent } from "../../core/agent/agent";
 import type { Config } from "../../core/config/config";
 import { debug, writelog } from "../../shared/debug";
 import { toUnifiedDiff } from "../../core/utils/diff";
-import type { ShellExecution } from "../../core/tools/types";
+import type { ShellExecution, ToolConfirmation } from "../../core/tools/types";
 import data from "../../../logs/message.json";
 import type { CompactionState } from "../components/CompactionStatusView";
 
@@ -32,25 +32,47 @@ export type UIMessage = TextMessage | ToolMessage;
 let nextId = 0;
 
 export function useAgent(config: Config) {
-    const agentRef = useRef<Promise<Agent> | null>(null);
-    const abortRef = useRef<AbortController | null>(null);
-
     const [messages, setMessages] = useState<UIMessage[]>([]);
-
     const [isWorking, setIsWorking] = useState(false);
     const [compaction, setCompaction] = useState<CompactionState>({ status: "idle" });
+    const [approvalRequest, setApprovalRequest] = useState<ToolConfirmation | null>(null);
+
+    const agentRef = useRef<Promise<Agent> | null>(null);
+    const abortRef = useRef<AbortController | null>(null);
+    const approvalResolver = useRef<((approved: boolean) => void) | null>(null);
+
+
+
+    const requestApproval = useCallback(
+        (confirmation: ToolConfirmation) =>
+            new Promise<boolean>((resolve) => {
+                debug({ confirmation });
+                approvalResolver.current = resolve;
+                setApprovalRequest(confirmation);
+            }),
+        [],
+    );
+
+    const resolveApproval = useCallback((approved: boolean) => {
+        approvalResolver.current?.(approved);
+        approvalResolver.current = null;
+        setApprovalRequest(null);
+    }, []);
 
     // Cache the promise rather than the resolved Agent: concurrent callers then
     // share one in-flight construction instead of racing to create two.
     const getAgent = (): Promise<Agent> => {
-        agentRef.current ??= Agent.create(config);
+        agentRef.current ??= Agent.create(config, requestApproval);
         return agentRef.current;
     };
 
     useEffect(() => {
         return () => {
+            approvalResolver.current?.(false);
+            approvalResolver.current = null;
+            setApprovalRequest(null);
+
             abortRef.current?.abort();
-            // May still be constructing on unmount; close it once it lands.
             agentRef.current?.then((agent) => agent.close()).catch(() => {});
             agentRef.current = null;
         };
@@ -73,8 +95,6 @@ export function useAgent(config: Config) {
 
             const userId = ++nextId;
             const firstAssistantId = ++nextId;
-            // Each loop iteration gets its own assistant bubble; null means the next
-            // text_delta should open a fresh one.
             let assistantId: number | null = firstAssistantId;
 
             setMessages((prev) => [
@@ -195,5 +215,7 @@ export function useAgent(config: Config) {
         compaction,
         sendMessage,
         cancel,
+        approvalRequest,
+        resolveApproval,
     };
 }

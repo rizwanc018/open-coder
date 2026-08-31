@@ -1,4 +1,4 @@
-import { dirname, isAbsolute, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { existsSync, mkdirSync } from "node:fs";
 
 export const resolvePath = (base: string, path: string): string => {
@@ -13,3 +13,8 @@ export const createParentDirectory = (path: string): string => {
     mkdirSync(dirname(path), { recursive: true });
     return path;
 };
+
+export function isWithin(parent: string, child: string): boolean {
+    const rel = relative(resolve(parent), resolve(child));
+    return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}

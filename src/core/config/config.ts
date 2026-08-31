@@ -1,13 +1,16 @@
 import { statSync } from "node:fs";
 import z from "zod";
 
+export const APPROVAL_POLICIES = ["on-request", "auto", "auto-edit", "never", "yolo"] as const;
+export type ApprovalPolicy = (typeof APPROVAL_POLICIES)[number];
+
 const MISSING_MODEL = "Missing model name. Set `model.name` in your config file.";
 
 const modelConfigSchema = z.object(
     {
         name: z.string(MISSING_MODEL).min(1, MISSING_MODEL),
         temperature: z.number().min(0).max(2).default(1),
-        contextWindow: z.number().int().positive().default(500_000),//500_000
+        contextWindow: z.number().int().positive().default(500_000), //500_000
     },
     MISSING_MODEL,
 );
@@ -26,6 +29,7 @@ export const configSchema = z.object({
     userInstructions: z.string().nullable().default(null),
     shellEnvironment: shellEnvironmentPolicySchema.prefault({}),
     allowedTools: z.array(z.string()).nullable().default(null),
+    approval: z.enum(APPROVAL_POLICIES).default("on-request"),
     debug: z.boolean().default(false),
 });
 

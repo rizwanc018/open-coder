@@ -52,6 +52,10 @@ export interface ToolConfirmation {
     toolName: string;
     description: string;
     params: Record<string, unknown>;
+    diff?: FileDiff;
+    affectedPaths?: string[];
+    command?: string;
+    isDangerous?: boolean;
 }
 
 type ResultExtras = Omit<ToolResult, "success" | "output" | "error">;

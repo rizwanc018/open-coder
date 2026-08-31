@@ -4,17 +4,21 @@ import type { AgentEvent, ToolCall } from "./types";
 import { errorMessage } from "../utils/error";
 import type { Config } from "../config/config";
 import { Session } from "./session";
+import type { ConfirmationCallback } from "../safety/approval";
 
 export class Agent {
     session: Session;
     _closed = false;
 
-    private constructor(session: Session) {
+    private constructor(session: Session, confirmationCallback?: ConfirmationCallback) {
         this.session = session;
+        if (confirmationCallback) {
+            this.session.approvals.confirmationCallback = confirmationCallback;
+        }
     }
 
-    static async create(config: Config): Promise<Agent> {
-        return new Agent(await Session.create(config));
+    static async create(config: Config, confirmationCallback: ConfirmationCallback): Promise<Agent> {
+        return new Agent(await Session.create(config), confirmationCallback);
     }
 
     private _getClient(): LLMClient {
@@ -28,7 +32,7 @@ export class Agent {
 
     private async *_agentic_loop(signal?: AbortSignal): AsyncGenerator<AgentEvent> {
         this._assertOpen();
-        const { contextManager, compactor } = this.session;
+        const { contextManager, compactor, approvals } = this.session;
 
         const toolSchemas = this.session._toolRegistry.getSchemas();
         for (let turn = 0; turn < this.session._config.maxTurns; turn++) {
@@ -114,6 +118,7 @@ export class Agent {
                     cwd: this.session._config.cwd,
                     config: this.session._config,
                     signal,
+                    approvals,
                 });
 
                 const resultContent = result.success ? result.output : (result.error ?? result.output ?? "");

@@ -1,13 +1,25 @@
 import { getBuiltinTools } from ".";
+import { debug } from "../../shared/debug";
 import type { Config } from "../config/config";
+import type { ApprovalManager } from "../safety/approval";
 import { errorMessage } from "../utils/error";
 import { createSubagentTool, getDefaultSubagentDefinitions } from "./subAgent";
-import { err, toToolSchema, type AnyTool, type ToolContext, type ToolResult, type ToolSchema } from "./types";
+import {
+    err,
+    getConfirmation,
+    isMutating,
+    toToolSchema,
+    type AnyTool,
+    type ToolContext,
+    type ToolResult,
+    type ToolSchema,
+} from "./types";
 
 export interface InvokeOptions {
     cwd: string;
     signal?: AbortSignal;
     config: Config;
+    approvals?: ApprovalManager;
 }
 
 export class ToolRegistry {
@@ -46,10 +58,10 @@ export class ToolRegistry {
         rawParams: Record<string, unknown>,
         options: InvokeOptions,
     ): Promise<ToolResult> {
-        const { cwd, signal, config } = options;
+        const { cwd, signal, config, approvals } = options;
 
         const allowed = this.config.allowedTools;
-        
+
         if (allowed && !allowed.includes(name)) {
             return err(`Tool '${name}' is not available in this context`);
         }
@@ -73,6 +85,33 @@ export class ToolRegistry {
 
         const params = parsed.data as Record<string, unknown>;
         const ctx: ToolContext = { cwd, signal, config };
+
+        if (approvals) {
+            const confirmation = await getConfirmation(tool, params, ctx);
+
+
+            if (confirmation) {
+                const decision = await approvals.checkApproval({
+                    toolName: name,
+                    params,
+                    isMutating: isMutating(tool, params),
+                    affectedPaths: confirmation.affectedPaths ?? [],
+                    command: confirmation.command,
+                    isDangerous: confirmation.isDangerous ?? false,
+                });
+
+                if (decision === "rejected") {
+                    // return fail(err("Operation rejected by the safety policy"));
+                    return err("Operation rejected by the safety policy");
+                }
+
+                if (decision === "needs_confirmation") {
+                    const approved = await approvals.requestConfirmation(confirmation);
+                    // if (!approved) return fail(err("User rejected the operation"));
+                    if (!approved) return err("User rejected the operation");
+                }
+            }
+        }
 
         let result: ToolResult;
         try {
