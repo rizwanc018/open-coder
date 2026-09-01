@@ -32,7 +32,7 @@ export class Agent {
 
     private async *_agentic_loop(signal?: AbortSignal): AsyncGenerator<AgentEvent> {
         this._assertOpen();
-        const { contextManager, compactor, approvals } = this.session;
+        const { contextManager, compactor, approvals, hooks } = this.session;
 
         const toolSchemas = this.session._toolRegistry.getSchemas();
         for (let turn = 0; turn < this.session._config.maxTurns; turn++) {
@@ -119,6 +119,7 @@ export class Agent {
                     config: this.session._config,
                     signal,
                     approvals,
+                    hooks,
                 });
 
                 const resultContent = result.success ? result.output : (result.error ?? result.output ?? "");
@@ -142,6 +143,7 @@ export class Agent {
     }
 
     async *run(message: string, signal?: AbortSignal): AsyncGenerator<AgentEvent> {
+        await this.session.hooks.triggerBeforeAgent(message);
         yield { type: "agent_start", message };
         this.session.contextManager.addUserMessage(message);
 
@@ -158,9 +160,11 @@ export class Agent {
                 }
             }
         } catch (error) {
+            this.session.hooks.triggerOnError(error);
             yield { type: "agent_error", error: errorMessage(error) };
         }
 
+        await this.session.hooks.triggerAfterAgent(message, final_response);
         yield { type: "agent_end", final_response, usage };
     }
 

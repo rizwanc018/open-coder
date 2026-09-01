@@ -1,5 +1,6 @@
 import { getBuiltinTools } from ".";
 import type { Config } from "../config/config";
+import type { HookManager } from "../hooks/hooks";
 import type { ApprovalManager } from "../safety/approval";
 import { errorMessage } from "../utils/error";
 import { createSubagentTool, getDefaultSubagentDefinitions } from "./subAgent";
@@ -16,9 +17,10 @@ import {
 
 export interface InvokeOptions {
     cwd: string;
-    signal?: AbortSignal;
     config: Config;
+    signal?: AbortSignal;
     approvals?: ApprovalManager;
+    hooks?: HookManager;
 }
 
 export class ToolRegistry {
@@ -57,17 +59,22 @@ export class ToolRegistry {
         rawParams: Record<string, unknown>,
         options: InvokeOptions,
     ): Promise<ToolResult> {
-        const { cwd, signal, config, approvals } = options;
+        const { cwd, signal, config, approvals, hooks } = options;
+
+        const fail = async (result: ToolResult): Promise<ToolResult> => {
+            await hooks?.triggerAfterTool(name, rawParams, result);
+            return result;
+        };
 
         const allowed = this.config.allowedTools;
 
         if (allowed && !allowed.includes(name)) {
-            return err(`Tool '${name}' is not available in this context`);
+            return fail(err(`Tool '${name}' is not available in this context`));
         }
 
         const tool = this.get(name);
         if (!tool) {
-            return err(`Unknown tool: ${name}`, { metadata: { toolName: name } });
+            return fail(err(`Unknown tool: ${name}`, { metadata: { toolName: name } }));
         }
 
         const parsed = tool.schema.safeParse(rawParams);
@@ -77,17 +84,20 @@ export class ToolRegistry {
                 return path ? `Parameter '${path}': ${issue.message}` : issue.message;
             });
 
-            return err(`Invalid parameters: ${issues.join("; ")}`, {
-                metadata: { toolName: name, validationErrors: issues },
-            });
+            return fail(
+                err(`Invalid parameters: ${issues.join("; ")}`, {
+                    metadata: { toolName: name, validationErrors: issues },
+                }),
+            );
         }
 
         const params = parsed.data as Record<string, unknown>;
         const ctx: ToolContext = { cwd, signal, config };
 
+        await hooks?.triggerBeforeTool(name, params);
+
         if (approvals) {
             const confirmation = await getConfirmation(tool, params, ctx);
-
 
             if (confirmation) {
                 const decision = await approvals.checkApproval({
@@ -100,14 +110,12 @@ export class ToolRegistry {
                 });
 
                 if (decision === "rejected") {
-                    // return fail(err("Operation rejected by the safety policy"));
-                    return err("Operation rejected by the safety policy");
+                    return fail(err("Operation rejected by the safety policy"));
                 }
 
                 if (decision === "needs_confirmation") {
                     const approved = await approvals.requestConfirmation(confirmation);
-                    // if (!approved) return fail(err("User rejected the operation"));
-                    if (!approved) return err("User rejected the operation");
+                    if (!approved) return fail(err("User rejected the operation"));
                 }
             }
         }
@@ -120,7 +128,7 @@ export class ToolRegistry {
                 metadata: { toolName: name },
             });
         }
-
+        await hooks?.triggerAfterTool(name, params, result);
         return result;
     }
 }

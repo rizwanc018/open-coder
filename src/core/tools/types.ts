@@ -130,3 +130,8 @@ export const toToolSchema = (tool: Tool): ToolSchema => {
         },
     };
 };
+
+export const toModelOutput = (result: ToolResult): string => {
+    if (result.success) return result.output;
+    return `Error: ${result.error}${result.output ? `\n\nOutput:\n${result.output}` : ""}`;
+};

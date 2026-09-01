@@ -7,6 +7,7 @@ import { memoryAsPromptSection } from "../tools/built-in/memory";
 import { ToolDiscoveryManager } from "../tools/discovery";
 import { ChatCompactor } from "../context/compaction";
 import { ApprovalManager } from "../safety/approval";
+import { HookManager } from "../hooks/hooks";
 
 export class Session {
     readonly _client: LLMClient | null;
@@ -18,6 +19,7 @@ export class Session {
 
     contextManager: ContextManager;
     compactor: ChatCompactor;
+    hooks: HookManager;
     updatedAt: Date;
     turnCount: number;
 
@@ -31,8 +33,10 @@ export class Session {
         this._client = client;
         this._toolRegistry = toolRegistry;
         this.contextManager = contextManager;
+
         this.compactor = new ChatCompactor(this._client);
-        this.approvals = new ApprovalManager(config.approval, config.cwd);
+        this.approvals = new ApprovalManager(this._config.approval, this._config.cwd);
+        this.hooks = new HookManager(this._config);
 
         this.sessionId = randomUUID();
         this.createdAt = new Date();
