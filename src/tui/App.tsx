@@ -8,6 +8,7 @@ import { validateConfig, type Config } from "../core/config/config";
 import { errorMessage } from "../core/utils/error";
 import { ApprovalDialog } from "./components/ApprovalDialog";
 import { useTransientNotice } from "./hooks/useTransientNotice";
+import { parseCommand } from "./command";
 
 type AppProps = {
     config: Config;
@@ -17,20 +18,27 @@ type AppProps = {
 const EXIT_HINT = "Type /exit to quit.";
 
 const App = ({ config, onExit }: AppProps) => {
-    const { messages, isWorking, sendMessage, compaction, approvalRequest, resolveApproval, cancel } =
-        useAgent(config);
+    const {
+        messages,
+        isWorking,
+        sendMessage,
+        runCommand,
+        compaction,
+        approvalRequest,
+        resolveApproval,
+        cancel,
+    } = useAgent(config, onExit);
     const { notice, showNotice } = useTransientNotice();
 
     const handleSubmit = (text: string) => {
-        const command = text.trim();
+        const parsed = parseCommand(text);
 
-        if (command === "/exit") {
-            cancel();
-            onExit();
+        if (!parsed) {
+            void sendMessage(text);
             return;
         }
 
-        void sendMessage(text);
+        void runCommand(parsed);
     };
 
     useKeyboard((key) => {
@@ -74,9 +82,6 @@ if (configErrors.length > 0) {
     process.exit(1);
 }
 
-// exitOnCtrlC alone is enough: in raw mode ISIG is off, so Ctrl+C arrives as a
-// keypress, not SIGINT. Leave exitSignals at its default so a real signal
-// (SIGHUP, SIGTERM, a crash) still restores the terminal on the way out.
 const renderer = await createCliRenderer({
     exitOnCtrlC: false,
 });
@@ -88,9 +93,12 @@ let shuttingDown = false;
 const shutdown = () => {
     if (shuttingDown) return;
     shuttingDown = true;
-    root.unmount();
-    renderer.destroy();
-    process.exit(0)
+    try {
+        root.unmount();
+        renderer.destroy();
+    } finally {
+        process.exit(0); 
+    }
 };
 
 root.render(<App config={config} onExit={shutdown} />);

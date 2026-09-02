@@ -54,7 +54,8 @@ class TodoStore {
     }
 }
 
-const todos = new TodoStore();
+/** Exported so the TUI's `/todos` command can read the list without an LLM turn. */
+export const todos = new TodoStore();
 
 // const schema = z.object({
 //     action: z.enum(["add", "start", "complete", "list", "clear"]).describe("The operation to perform"),

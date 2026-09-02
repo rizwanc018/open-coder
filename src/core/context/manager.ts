@@ -66,6 +66,16 @@ export class ContextManager {
         });
     }
 
+    /**
+     * Drops the conversation, keeping the system prompt. `totalUsage` survives on
+     * purpose: it is session-wide accounting, not context — clearing the window
+     * does not un-spend the tokens already billed.
+     */
+    clear(): void {
+        this._messages = [];
+        this.latestUsage = EMPTY_USAGE;
+    }
+
     recordUsage(usage: TokenUsage): void {
         this.latestUsage = usage;
         this.totalUsage = addUsage(this.totalUsage, usage);

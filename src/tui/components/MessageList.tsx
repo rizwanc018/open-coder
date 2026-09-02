@@ -5,6 +5,7 @@ import { ToolCallRow } from "./ToolCallRow";
 import { theme } from "../theme";
 import type { UIMessage } from "../hooks/useAgent";
 import { CompactionStatus, type CompactionState } from "./CompactionStatusView";
+import { SystemMessageView } from "./SystemMessageView";
 
 type MessageListProps = {
     messages: UIMessage[];
@@ -15,6 +16,10 @@ type MessageListProps = {
 function renderMessage(message: UIMessage, isLast: boolean, isWorking: boolean, compaction: CompactionState) {
     if (message.role === "tool") {
         return <ToolCallRow message={message} />;
+    }
+
+    if (message.role === "system") {
+        return <SystemMessageView message={message} />;
     }
 
     if (message.role === "user") {

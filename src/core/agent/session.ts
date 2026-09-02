@@ -1,4 +1,5 @@
-import type { Config } from "../config/config";
+import type { ApprovalPolicy, Config } from "../config/config";
+import type { AnyTool } from "../tools/types";
 import { LLMClient } from "../client/llm_client";
 import { ContextManager } from "../context/manager";
 import { createToolDefaultRegistry, type ToolRegistry } from "../tools/registry";
@@ -61,5 +62,42 @@ export class Session {
     incrementTurn(): number {
         this.updatedAt = new Date();
         return ++this.turnCount;
+    }
+
+    get model(): string {
+        return this._config.model.name;
+    }
+
+    get approvalPolicy(): ApprovalPolicy {
+        return this.approvals.policy;
+    }
+
+    get tools(): AnyTool[] {
+        return this._toolRegistry.getTools();
+    }
+
+    /**
+     * Swapping the model works because `LLMClient` reads `config.model.name` per
+     * request rather than caching it. Route changes through here so there is one
+     * place to rebuild the client from if that ever stops being true.
+     *
+     * Note `model.contextWindow` is deliberately left alone: we cannot know the new
+     * model's window, and guessing it wrong breaks compaction. Callers should warn.
+     */
+    setModel(name: string): void {
+        this._config.model.name = name;
+    }
+
+    setApprovalPolicy(policy: ApprovalPolicy): void {
+        this._config.approval = policy;
+        this.approvals.policy = policy;
+    }
+
+    /** Forgets the conversation. The tool registry and client are untouched. */
+    reset(): void {
+        this.contextManager.clear();
+        this.loopDetector.clear();
+        this.turnCount = 0;
+        this.updatedAt = new Date();
     }
 }

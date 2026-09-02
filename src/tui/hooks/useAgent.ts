@@ -6,6 +6,8 @@ import { toUnifiedDiff } from "../../core/utils/diff";
 import type { ShellExecution, ToolConfirmation } from "../../core/tools/types";
 import data from "../../../logs/message.json";
 import type { CompactionState } from "../components/CompactionStatusView";
+import type { ParsedCommand } from "../command";
+import { runSlashCommand } from "../commandRunner";
 
 export type TextMessage = {
     id: number;
@@ -27,11 +29,23 @@ export type ToolMessage = {
     shell?: ShellExecution;
 };
 
-export type UIMessage = TextMessage | ToolMessage;
+/**
+ * Output of a slash command. Lives in the transcript so it scrolls and persists,
+ * but is never handed to `ContextManager` — the model neither sees it nor pays for it.
+ */
+export type SystemMessage = {
+    id: number;
+    role: "system";
+    title: string;
+    lines: string[];
+    level: "info" | "error";
+};
+
+export type UIMessage = TextMessage | ToolMessage | SystemMessage;
 
 let nextId = 0;
 
-export function useAgent(config: Config) {
+export function useAgent(config: Config, onExit: () => void) {
     const [messages, setMessages] = useState<UIMessage[]>([]);
     const [isWorking, setIsWorking] = useState(false);
     const [compaction, setCompaction] = useState<CompactionState>({ status: "idle" });
@@ -40,8 +54,6 @@ export function useAgent(config: Config) {
     const agentRef = useRef<Promise<Agent> | null>(null);
     const abortRef = useRef<AbortController | null>(null);
     const approvalResolver = useRef<((approved: boolean) => void) | null>(null);
-
-
 
     const requestApproval = useCallback(
         (confirmation: ToolConfirmation) =>
@@ -208,11 +220,36 @@ export function useAgent(config: Config) {
         abortRef.current?.abort();
     }, []);
 
+    const runCommand = useCallback(
+        async (parsed: ParsedCommand) => {
+            const existing = await agentRef.current;
+
+            const output = await runSlashCommand(parsed, {
+                session: existing?.session ?? null,
+                ensureSession: async () => (await getAgent()).session,
+                config,
+                clearConversation: () => {
+                    setMessages([]);
+                    setCompaction({ status: "idle" });
+                },
+                exit: () => {
+                    (cancel(), onExit());
+                },
+            });
+
+            if (!output) return;
+
+            setMessages((prev) => [...prev, { id: ++nextId, role: "system", ...output }]);
+        },
+        [config],
+    );
+
     return {
         messages,
         isWorking,
         compaction,
         sendMessage,
+        runCommand,
         cancel,
         approvalRequest,
         resolveApproval,
