@@ -5,6 +5,8 @@ import { errorMessage } from "../utils/error";
 import type { Config } from "../config/config";
 import { Session } from "./session";
 import type { ConfirmationCallback } from "../safety/approval";
+import { createLoopBreakerPrompt } from "../prompts/system";
+import { debug } from "../../shared/debug";
 
 export class Agent {
     session: Session;
@@ -32,7 +34,7 @@ export class Agent {
 
     private async *_agentic_loop(signal?: AbortSignal): AsyncGenerator<AgentEvent> {
         this._assertOpen();
-        const { contextManager, compactor, approvals, hooks } = this.session;
+        const { contextManager, compactor, approvals, hooks, loopDetector } = this.session;
 
         const toolSchemas = this.session._toolRegistry.getSchemas();
         for (let turn = 0; turn < this.session._config.maxTurns; turn++) {
@@ -99,6 +101,7 @@ export class Agent {
 
             if (responseText) {
                 yield { type: "text_complete", content: responseText, usage };
+                loopDetector.record({ type: "response", text: responseText });
             }
 
             if (toolCalls.length === 0) {
@@ -113,6 +116,7 @@ export class Agent {
                     name: tc.name,
                     arguments: tc.arguments,
                 };
+                loopDetector.record({ type: "tool_call", toolName: tc.name, args: tc.arguments });
 
                 const result = await this.session._toolRegistry.invoke(tc.name, tc.arguments, {
                     cwd: this.session._config.cwd,
@@ -133,6 +137,12 @@ export class Agent {
                     arguments: tc.arguments,
                     result,
                 };
+            }
+
+            const loop = loopDetector.check();
+            if (loop) {
+                contextManager.addUserMessage(createLoopBreakerPrompt(loop));
+                loopDetector.clear();
             }
         }
 

@@ -285,7 +285,5 @@ To break out of this loop:
 1. Stop and reflect on what you are trying to accomplish
 2. Consider a fundamentally different approach
 3. If the task seems impossible, explain why and ask for clarification
-4. If you are hitting repeated errors, try a different solution rather than retrying the same one
-
-Do not repeat the same action again.`;
+4. If you are hitting repeated errors, try a different solution rather than retrying the same one`;
 }

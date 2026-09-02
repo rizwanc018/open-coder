@@ -8,14 +8,17 @@ import { ToolDiscoveryManager } from "../tools/discovery";
 import { ChatCompactor } from "../context/compaction";
 import { ApprovalManager } from "../safety/approval";
 import { HookManager } from "../hooks/hooks";
+import { LoopDetector } from "./loopDetector";
 
 export class Session {
     readonly _client: LLMClient | null;
     readonly _toolRegistry: ToolRegistry;
     readonly _config: Config;
+
     readonly sessionId: string;
     readonly createdAt: Date;
     readonly approvals: ApprovalManager;
+    readonly loopDetector: LoopDetector;
 
     contextManager: ContextManager;
     compactor: ChatCompactor;
@@ -37,6 +40,7 @@ export class Session {
         this.compactor = new ChatCompactor(this._client);
         this.approvals = new ApprovalManager(this._config.approval, this._config.cwd);
         this.hooks = new HookManager(this._config);
+        this.loopDetector = new LoopDetector();
 
         this.sessionId = randomUUID();
         this.createdAt = new Date();
