@@ -23,16 +23,13 @@ export type ToolMessage = {
     name: string;
     arguments: Record<string, unknown>;
     metadata?: Record<string, unknown>;
-    status: "running" | "success" | "error";
+    status: "running" | "success" | "error" | "interrupted";
     resultOutput?: string;
     diff?: string;
     shell?: ShellExecution;
 };
 
-/**
- * Output of a slash command. Lives in the transcript so it scrolls and persists,
- * but is never handed to `ContextManager` — the model neither sees it nor pays for it.
- */
+
 export type SystemMessage = {
     id: number;
     role: "system";
@@ -206,9 +203,20 @@ export function useAgent(config: Config, onExit: () => void) {
             } catch (err) {
                 appendErrorMessage(err instanceof Error ? err.message : "Something went wrong");
             } finally {
-                // Drop assistant bubbles that never received text (e.g. a turn that
-                // produced only tool calls).
-                setMessages((prev) => prev.filter((m) => !(m.role === "assistant" && m.content === "")));
+                setMessages((prev) =>
+                    prev
+                        // Drop assistant bubbles that never received text (e.g. a turn
+                        // that produced only tool calls).
+                        .filter((m) => !(m.role === "assistant" && m.content === ""))
+                        // A tool row only leaves "running" on `tool_call_complete`. An
+                        // interrupt or a throw skips that event, so without this sweep
+                        // the row spins forever while the agent is long since stopped.
+                        .map((m) =>
+                            m.role === "tool" && m.status === "running"
+                                ? { ...m, status: "interrupted" as const }
+                                : m,
+                        ),
+                );
                 abortRef.current = null;
                 setIsWorking(false);
             }

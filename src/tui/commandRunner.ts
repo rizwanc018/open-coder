@@ -1,21 +1,11 @@
-/**
- * Executes slash commands.
- *
- * Everything here runs entirely client-side: no command reaches the model, adds a
- * message to `ContextManager`, or costs a token. That invariant is the whole point
- * of the feature — the naive alternative is to send `/tools` to the LLM and ask it
- * to introspect, which burns a turn and gets the answer wrong.
- */
-
+import { PersistenceManager, snapshotOf } from "../core/agent/persistance";
 import type { Session } from "../core/agent/session";
 import { APPROVAL_POLICIES, type ApprovalPolicy, type Config } from "../core/config/config";
 import { todos } from "../core/tools/built-in/todo";
 import type { AnyTool } from "../core/tools/types";
-import { debug } from "../shared/debug";
 import { formatCommand, SLASH_COMMANDS, type ParsedCommand } from "./command";
 
 export type CommandOutput = {
-    /** Echoed as the block heading, e.g. `/model gpt-4o`. */
     title: string;
     lines: string[];
     level: "info" | "error";
@@ -30,10 +20,8 @@ export type CommandContext = {
 };
 
 const LABEL_WIDTH = 16;
-/** Wider, because `/approval [policy]` overflows the settings column. */
 const COMMAND_WIDTH = 20;
 
-/** Two-column line. Guarantees a gap even when the label overflows the column. */
 const row = (label: string, value: string, width = LABEL_WIDTH): string =>
     `${label}${" ".repeat(Math.max(1, width - label.length))}${value}`;
 
@@ -84,7 +72,6 @@ const modelCommand = (args: string, ctx: CommandContext): CommandOutput => {
     }
 
     if (!session) {
-        // The agent is built lazily from `config`, so writing it here is still correct.
         config.model.name = args;
     } else {
         session.setModel(args);
@@ -161,6 +148,52 @@ const toolsCommand = (tools: AnyTool[]): CommandOutput => {
     return info("/tools", lines);
 };
 
+const saveSessionCommand = (ctx: CommandContext): CommandOutput => {
+    new PersistenceManager().saveSession(snapshotOf(ctx.session!));
+    const line = [`Session id : ${ctx.session?.sessionId!}`];
+    return info("Session saved", line);
+};
+
+const TITLE_WIDTH = 60;
+
+// Titles are raw user messages: multi-line, arbitrarily long. Collapse to a
+// single clipped line so one session never blows out the list.
+const titleOf = (title: string | null): string => {
+    const text = title?.replace(/\s+/g, " ").trim();
+    if (!text) return "(no messages)";
+    return text.length > TITLE_WIDTH ? `${text.slice(0, TITLE_WIDTH - 1)}…` : text;
+};
+
+const when = (iso: string): string => {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return iso;
+    return date.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+};
+
+const listSessionsCommand = (): CommandOutput => {
+    const sessions = new PersistenceManager().listSessions();
+
+    if (sessions.length === 0) {
+        return info("/sessions", ["No saved sessions. Save the current one with /save."]);
+    }
+
+    const indexWidth = String(sessions.length).length;
+    const lines = [count(sessions.length, "session")];
+
+    sessions.forEach((session, i) => {
+        const index = String(i + 1).padStart(indexWidth, " ");
+        const indent = " ".repeat(indexWidth + 2);
+        lines.push(
+            "",
+            `${index}. ${titleOf(session.title)}`,
+            `${indent}Session id:  ${session.sessionId}`,
+            `${indent}${count(session.turnCount, "turn")} · ${when(session.updatedAt)}`,
+        );
+    });
+
+    return info("Saved sessions", lines);
+};
+
 const todosCommand = (): CommandOutput => {
     const items = todos.list();
 
@@ -225,8 +258,17 @@ export const runSlashCommand = async (
         case "todos":
             return todosCommand();
 
+        case "save":
+            return saveSessionCommand(ctx);
+
+        case "sessions":
+            return listSessionsCommand();
+
         case "exit":
             ctx.exit();
             return null;
+
+        default:
+            return unknownCommand(parsed.command.name);
     }
 };

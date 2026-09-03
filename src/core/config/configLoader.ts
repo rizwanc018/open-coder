@@ -45,7 +45,6 @@ function readAgentMd(cwd: string): string | null {
     return isFile(agentMd) ? readFileSync(agentMd, "utf-8") : null;
 }
 
-/** Renders a Zod issue path as a dotted key, e.g. `model.temperature`. */
 const formatPath = (path: PropertyKey[]): string =>
     path.map((segment) => (typeof segment === "number" ? `[${segment}]` : String(segment))).join(".");
 

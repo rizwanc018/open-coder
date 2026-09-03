@@ -6,6 +6,7 @@ import type { Config } from "../config/config";
 import { Session } from "./session";
 import type { ConfirmationCallback } from "../safety/approval";
 import { createLoopBreakerPrompt } from "../prompts/system";
+import { INTERRUPTED_RESULT } from "../context/manager";
 import { debug } from "../../shared/debug";
 
 export class Agent {
@@ -172,6 +173,8 @@ export class Agent {
         } catch (error) {
             this.session.hooks.triggerOnError(error);
             yield { type: "agent_error", error: errorMessage(error) };
+        } finally {
+            this.session.contextManager.settlePendingToolCalls(INTERRUPTED_RESULT);
         }
 
         await this.session.hooks.triggerAfterAgent(message, final_response);

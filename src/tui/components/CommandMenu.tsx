@@ -9,11 +9,6 @@ type CommandMenuProps = {
 
 const NAME_WIDTH = 20;
 
-/**
- * Presentational only. Selection state and key handling live in `Inputbar`, which
- * owns the textarea the menu completes into — splitting them would mean passing
- * the ref down or bouncing callbacks back up for no gain.
- */
 export function CommandMenu({ commands, selectedIndex }: CommandMenuProps) {
     return (
         <box

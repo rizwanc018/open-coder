@@ -17,11 +17,41 @@ export interface CompactionPlan {
     tailTokens: number;
 }
 
+export const INTERRUPTED_RESULT = "[Interrupted by the user before this tool ran.]";
+export const UNFINISHED_RESULT = "[This tool never reported a result; the session ended first.]";
+
+
+export function settleToolCalls(items: MessageItem[], reason: string): MessageItem[] {
+    const answered = new Set<string>();
+    for (const { message } of items) {
+        if (message.role === "tool" && message.toolCallId) answered.add(message.toolCallId);
+    }
+
+    const settled: MessageItem[] = [];
+    for (const item of items) {
+        settled.push(item);
+
+        const { message } = item;
+        if (message.role !== "assistant" || !message.toolCalls) continue;
+
+        for (const call of message.toolCalls) {
+            if (answered.has(call.id)) continue;
+            settled.push({
+                message: { role: "tool", content: reason, toolCallId: call.id },
+                tokenCount: countTokens(reason),
+            });
+        }
+    }
+
+    return settled;
+}
+
 export class ContextManager {
     private readonly _config: Config;
     private readonly _systemPrompt: string;
     private readonly _systemPromptTokens: number;
     private _messages: MessageItem[] = [];
+    private _title: string | null = null;
     private latestUsage: TokenUsage = EMPTY_USAGE;
     totalUsage: TokenUsage = EMPTY_USAGE;
 
@@ -32,6 +62,7 @@ export class ContextManager {
     }
 
     addUserMessage(content: string): void {
+        this._title ??= content;
         this._messages.push({
             message: { role: "user", content },
             tokenCount: countTokens(content),
@@ -66,13 +97,15 @@ export class ContextManager {
         });
     }
 
-    /**
-     * Drops the conversation, keeping the system prompt. `totalUsage` survives on
-     * purpose: it is session-wide accounting, not context — clearing the window
-     * does not un-spend the tokens already billed.
-     */
+    settlePendingToolCalls(reason: string): number {
+        const before = this._messages.length;
+        this._messages = settleToolCalls(this._messages, reason);
+        return this._messages.length - before;
+    }
+
     clear(): void {
         this._messages = [];
+        this._title = null;
         this.latestUsage = EMPTY_USAGE;
     }
 
@@ -81,20 +114,14 @@ export class ContextManager {
         this.totalUsage = addUsage(this.totalUsage, usage);
     }
 
-    /**
-     * A side-channel completion (compaction, titling, …): bills the cost only. Its
-     * prompt is not the live conversation, so it must never move the context gauge.
-     */
     recordCost(usage: TokenUsage): void {
         this.totalUsage = addUsage(this.totalUsage, usage);
     }
 
-    /** Tokens held by the conversation alone. Use this to measure a delta. */
     private _messageTokens(): number {
         return this._messages.reduce((total, item) => total + item.tokenCount, 0);
     }
 
-    /** Tokens the next request will occupy in the window. Use this to measure against a budget. */
     getTokenCount(): number {
         return this._systemPromptTokens + this._messageTokens();
     }
@@ -113,6 +140,14 @@ export class ContextManager {
 
     isOverContextWindow(): boolean {
         return this.getTokenCount() >= this._config.model.contextWindow;
+    }
+
+    get title(): string | null {
+        return this._title;
+    }
+
+    getItems(): MessageItem[] {
+        return [...this._messages];
     }
 
     getMessages(): ChatMessages[] {

@@ -16,11 +16,11 @@ export class Session {
     readonly _toolRegistry: ToolRegistry;
     readonly _config: Config;
 
-    readonly sessionId: string;
-    readonly createdAt: Date;
     readonly approvals: ApprovalManager;
     readonly loopDetector: LoopDetector;
 
+    sessionId: string;
+    createdAt: Date;
     contextManager: ContextManager;
     compactor: ChatCompactor;
     hooks: HookManager;
@@ -76,14 +76,6 @@ export class Session {
         return this._toolRegistry.getTools();
     }
 
-    /**
-     * Swapping the model works because `LLMClient` reads `config.model.name` per
-     * request rather than caching it. Route changes through here so there is one
-     * place to rebuild the client from if that ever stops being true.
-     *
-     * Note `model.contextWindow` is deliberately left alone: we cannot know the new
-     * model's window, and guessing it wrong breaks compaction. Callers should warn.
-     */
     setModel(name: string): void {
         this._config.model.name = name;
     }
@@ -93,11 +85,12 @@ export class Session {
         this.approvals.policy = policy;
     }
 
-    /** Forgets the conversation. The tool registry and client are untouched. */
     reset(): void {
         this.contextManager.clear();
         this.loopDetector.clear();
         this.turnCount = 0;
         this.updatedAt = new Date();
+        this.createdAt = new Date();
+        this.sessionId = randomUUID();
     }
 }

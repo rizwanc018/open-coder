@@ -115,7 +115,9 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
             ? theme.muted
             : message.status === "success"
               ? theme.success
-              : theme.error;
+              : message.status === "interrupted"
+                ? theme.warning
+                : theme.error;
 
     const readLine =
         message.status === "success" && message.name === "read_file" && message.resultOutput
@@ -133,6 +135,10 @@ export function ToolCallRow({ message }: ToolCallRowProps) {
             </box>
             {message.status === "running" ? (
                 <text fg={theme.muted}>{"  └ running…"}</text>
+            ) : message.status === "interrupted" ? (
+                // Short-circuits ahead of the per-tool views below: they render
+                // `metadata` this call never produced.
+                <text fg={theme.warning}>{"  └ interrupted"}</text>
             ) : message.name === "shell" && message.shell ? (
                 <ShellView execution={message.shell} />
             ) : message.name === "grep" ? (

@@ -6,7 +6,6 @@ type SystemMessageViewProps = {
     message: SystemMessage;
 };
 
-/** Local command output. Visually distinct from `❯`/`❮` so it never reads as chat. */
 export function SystemMessageView({ message }: SystemMessageViewProps) {
     const accent = message.level === "error" ? theme.error : theme.accent;
 

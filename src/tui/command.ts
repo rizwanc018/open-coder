@@ -5,6 +5,8 @@ export const SLASH_COMMAND_NAMES = [
     "approval",
     "tools",
     "todos",
+    "save",
+    "sessions",
     "exit",
 ] as const;
 
@@ -23,13 +25,14 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     { name: "approval", argHint: "[policy]", description: "Show or change approval policy" },
     { name: "tools", description: "List tools available to the agent" },
     { name: "todos", description: "Show current task list" },
+    { name: "save", description: "Save the current session" },
+    { name: "sessions", description: "List saved sessions" },
     { name: "exit", description: "Quit the application" },
 ];
 
 export type ParsedCommand =
     | { kind: "known"; command: SlashCommand; args: string }
     | { kind: "unknown"; name: string };
-
 
 const COMMAND_LINE = /^\/([a-zA-Z][\w-]*)(?:\s+([\s\S]*))?$/;
 
