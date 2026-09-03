@@ -151,9 +151,26 @@ const toolsCommand = (tools: AnyTool[]): CommandOutput => {
 };
 
 const saveSessionCommand = (ctx: CommandContext): CommandOutput => {
-    new PersistenceManager().saveSession(snapshotOf(ctx.session!));
-    const line = [`Session id : ${ctx.session?.sessionId!}`];
-    return info("Session saved", line);
+    const { session } = ctx;
+    if (!session) return error("/save", ["Nothing to save yet — send a message first."]);
+
+    new PersistenceManager().saveSession(snapshotOf(session));
+    return info("Session saved", [row("session id", session.sessionId)]);
+};
+
+const checkpointCommand = (ctx: CommandContext): CommandOutput => {
+    const { session } = ctx;
+    if (!session || session.turnCount === 0) {
+        return error("/checkpoint", ["Nothing to checkpoint yet — send a message first."]);
+    }
+
+    const checkpoint = new PersistenceManager().saveCheckpoint(snapshotOf(session));
+
+    return info("Checkpoint saved", [
+        row("checkpoint id", checkpoint.checkpointId),
+        row("session id", checkpoint.sessionId),
+        row("turns", String(checkpoint.turnCount)),
+    ]);
 };
 
 const TITLE_WIDTH = 60;
@@ -194,6 +211,35 @@ const listSessionsCommand = (): CommandOutput => {
     });
 
     return info("Saved sessions", lines);
+};
+
+const listCheckpointsCommand = (ctx: CommandContext): CommandOutput => {
+    const { session } = ctx;
+    if (!session) {
+        return info("/checkpoints", ["No active session yet — send a message first."]);
+    }
+
+    const checkpoints = new PersistenceManager().listCheckpoints(session.sessionId);
+
+    if (checkpoints.length === 0) {
+        return info("/checkpoints", ["No checkpoints in this session. Take one with /checkpoint."]);
+    }
+
+    const indexWidth = String(checkpoints.length).length;
+    const lines = [count(checkpoints.length, "checkpoint")];
+
+    checkpoints.forEach((checkpoint, i) => {
+        const index = String(i + 1).padStart(indexWidth, " ");
+        const indent = " ".repeat(indexWidth + 2);
+        lines.push(
+            "",
+            `${index}. ${titleOf(checkpoint.title)}`,
+            `${indent}Checkpoint id:  ${checkpoint.checkpointId}`,
+            `${indent}${count(checkpoint.turnCount, "turn")} · ${when(checkpoint.updatedAt)}`,
+        );
+    });
+
+    return info("Checkpoints", lines);
 };
 
 /**
@@ -326,6 +372,12 @@ export const runSlashCommand = async (
 
         case "resume":
             return resumeCommand(args, ctx);
+
+        case "checkpoint":
+            return checkpointCommand(ctx);
+
+        case "checkpoints":
+            return listCheckpointsCommand(ctx);
 
         case "exit":
             ctx.exit();

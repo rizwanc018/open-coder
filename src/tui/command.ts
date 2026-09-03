@@ -8,6 +8,8 @@ export const SLASH_COMMAND_NAMES = [
     "save",
     "sessions",
     "resume",
+    "checkpoint",
+    "checkpoints",
     "exit",
 ] as const;
 
@@ -29,6 +31,8 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     { name: "save", description: "Save the current session" },
     { name: "sessions", description: "List saved sessions" },
     { name: "resume", argHint: "[Id|number]", description: "Resume a saved session" },
+    { name: "checkpoint", description: "Save a checkpoint of the current session" },
+    { name: "checkpoints", description: "List checkpoints in the current session" },
     { name: "exit", description: "Quit the application" },
 ];
 

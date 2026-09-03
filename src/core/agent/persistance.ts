@@ -1,4 +1,5 @@
 import { chmodSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { getDataDir } from "../config/configLoader";
 import type { TokenUsage } from "../client/types";
@@ -7,7 +8,6 @@ import { settleToolCalls, UNFINISHED_RESULT } from "../context/manager";
 import { pathExists } from "../utils/path";
 import type { Session } from "./session";
 import { debug } from "../../shared/debug";
-
 
 export interface SessionSnapshot {
     sessionId: string;
@@ -19,6 +19,10 @@ export interface SessionSnapshot {
     totalUsage: TokenUsage;
 }
 
+export interface CheckpointSnapshot extends SessionSnapshot {
+    checkpointId: string;
+}
+
 export interface SessionSummary {
     sessionId: string;
     updatedAt: string;
@@ -26,40 +30,33 @@ export interface SessionSummary {
     title: string | null;
 }
 
+export interface CheckpointSummary extends SessionSummary {
+    checkpointId: string;
+}
 
-function isSnapshot(value: unknown): value is SessionSnapshot {
-    if (typeof value !== "object" || value === null) return false;
-    const snapshot = value as Partial<SessionSnapshot>;
 
-    return (
-        typeof snapshot.sessionId === "string" &&
-        typeof snapshot.createdAt === "string" &&
-        typeof snapshot.updatedAt === "string" &&
-        typeof snapshot.turnCount === "number" &&
-        (snapshot.title === null || typeof snapshot.title === "string") &&
-        Array.isArray(snapshot.items) &&
-        snapshot.items.every(
-            (item) =>
-                typeof item === "object" &&
-                item !== null &&
-                typeof item.tokenCount === "number" &&
-                typeof item.message === "object" &&
-                item.message !== null,
-        ) &&
-        typeof snapshot.totalUsage === "object" &&
-        snapshot.totalUsage !== null
-    );
+function lastUserMessage(items: MessageItem[]): string | null {
+    const found = items.findLast((item) => {
+        const message = item.message as { role?: string; content?: unknown };
+        return message.role === "user" && typeof message.content === "string" && message.content.trim() !== "";
+    });
+
+    return found ? ((found.message as { content: string }).content ?? null) : null;
 }
 
 export class PersistenceManager {
     private readonly _sessionsDir: string;
+    private readonly _checkpointsDir: string;
 
     constructor() {
         const dataDir = getDataDir();
         this._sessionsDir = join(dataDir, "sessions");
+        this._checkpointsDir = join(dataDir, "checkpoints");
 
-        mkdirSync(this._sessionsDir, { recursive: true });
-        chmodSync(this._sessionsDir, 0o700);
+        for (const dir of [this._sessionsDir, this._checkpointsDir]) {
+            mkdirSync(dir, { recursive: true });
+            chmodSync(dir, 0o700);
+        }
     }
 
     private _write(path: string, snapshot: SessionSnapshot) {
@@ -72,13 +69,9 @@ export class PersistenceManager {
         if (!pathExists(path)) return null;
 
         try {
-            const parsed: unknown = JSON.parse(readFileSync(path, "utf-8"));
-            if (!isSnapshot(parsed)) {
-                debug(`persistence: ignoring unreadable snapshot ${path}`);
-                return null;
-            }
-            return parsed;
+            return JSON.parse(readFileSync(path, "utf-8")) as SessionSnapshot;
         } catch {
+            debug(`persistence: ignoring unreadable snapshot ${path}`);
             return null;
         }
     }
@@ -87,11 +80,49 @@ export class PersistenceManager {
         this._write(join(this._sessionsDir, `${snapshot.sessionId}.json`), snapshot);
     }
 
+    saveCheckpoint(snapshot: SessionSnapshot): CheckpointSnapshot {
+        const checkpoint: CheckpointSnapshot = {
+            ...snapshot,
+            checkpointId: randomUUID(),
+            title: lastUserMessage(snapshot.items) ?? snapshot.title,
+        };
+
+        const dir = join(this._checkpointsDir, checkpoint.sessionId);
+        mkdirSync(dir, { recursive: true });
+        chmodSync(dir, 0o700);
+
+        this._write(join(dir, `${checkpoint.checkpointId}.json`), checkpoint);
+        return checkpoint;
+    }
+
     loadSession(sessionId: string): SessionSnapshot | null {
         const snapshot = this._read(join(this._sessionsDir, `${sessionId}.json`));
         if (!snapshot) return null;
 
         return { ...snapshot, items: settleToolCalls(snapshot.items, UNFINISHED_RESULT) };
+    }
+
+    listCheckpoints(sessionId: string): CheckpointSummary[] {
+        const dir = join(this._checkpointsDir, sessionId);
+        if (!pathExists(dir)) return [];
+
+        return readdirSync(dir)
+            .filter((name) => name.endsWith(".json"))
+            .flatMap((name) => {
+                const snapshot = this._read(join(dir, name));
+                return snapshot
+                    ? [
+                          {
+                              checkpointId: name.slice(0, -".json".length),
+                              sessionId,
+                              updatedAt: snapshot.updatedAt,
+                              turnCount: snapshot.turnCount,
+                              title: snapshot.title,
+                          },
+                      ]
+                    : [];
+            })
+            .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     }
 
     listSessions(): SessionSummary[] {
