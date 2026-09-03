@@ -249,7 +249,9 @@ export function useAgent(config: Config, onExit: () => void) {
             const banner: SystemMessage = { id: ++nextId, role: "system", ...output };
 
             const isRestore =
-                parsed.kind === "known" && parsed.command.name === "resume" && output.level === "info";
+                parsed.kind === "known" &&
+                (parsed.command.name === "resume" || parsed.command.name === "rewind") &&
+                output.level === "info";
 
             setMessages((prev) => (isRestore ? [banner, ...prev] : [...prev, banner]));
         },

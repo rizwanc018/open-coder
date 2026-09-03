@@ -243,19 +243,23 @@ const listCheckpointsCommand = (ctx: CommandContext): CommandOutput => {
 };
 
 /**
- * Accepts what the user is actually looking at: a row number from `/sessions`, a
- * session id (or an unambiguous prefix of one), or nothing at all for the most
+ * Accepts what the user is actually looking at: a row number from the matching
+ * listing, an id (or an unambiguous prefix of one), or nothing at all for the most
  * recent. A bare integer is read as a row number first — nobody types a UUID.
  */
-const findSession = (args: string, sessions: SessionSummary[]): SessionSummary | "ambiguous" | null => {
-    if (!args) return sessions[0] ?? null;
+const findRow = <T extends SessionSummary>(
+    args: string,
+    rows: T[],
+    idOf: (row: T) => string,
+): T | "ambiguous" | null => {
+    if (!args) return rows[0] ?? null;
 
     if (/^\d+$/.test(args)) {
-        const row = sessions[Number(args) - 1];
+        const row = rows[Number(args) - 1];
         if (row) return row;
     }
 
-    const matches = sessions.filter((session) => session.sessionId.startsWith(args.toLowerCase()));
+    const matches = rows.filter((row) => idOf(row).startsWith(args.toLowerCase()));
     if (matches.length > 1) return "ambiguous";
     return matches[0] ?? null;
 };
@@ -268,7 +272,7 @@ const resumeCommand = async (args: string, ctx: CommandContext): Promise<Command
         return error("/resume", ["No saved sessions. Save the current one with /save."]);
     }
 
-    const found = findSession(args, sessions);
+    const found = findRow(args, sessions, (session) => session.sessionId);
     if (found === "ambiguous") {
         return error("/resume", [`More than one session id starts with "${args}".`]);
     }
@@ -297,6 +301,52 @@ const resumeCommand = async (args: string, ctx: CommandContext): Promise<Command
         row("turns", String(snapshot.turnCount)),
         row("saved", when(snapshot.updatedAt)),
         ...(replaced ? ["", "The session you were in was saved first; find it in /sessions."] : []),
+    ]);
+};
+
+const rewindCommand = (args: string, ctx: CommandContext): CommandOutput => {
+    const { session } = ctx;
+    if (!session) {
+        return error("/rewind", ["No active session yet — send a message first."]);
+    }
+
+    const persistence = new PersistenceManager();
+    const checkpoints = persistence.listCheckpoints(session.sessionId);
+
+    if (checkpoints.length === 0) {
+        return error("/rewind", ["No checkpoints in this session. Take one with /checkpoint."]);
+    }
+
+    const found = findRow(args, checkpoints, (checkpoint) => checkpoint.checkpointId);
+    if (found === "ambiguous") {
+        return error("/rewind", [`More than one checkpoint id starts with "${args}".`]);
+    }
+    if (!found) {
+        return error("/rewind", [`No checkpoint matches "${args}".`, "", "List them with /checkpoints."]);
+    }
+
+    const snapshot = persistence.loadCheckpoint(session.sessionId, found.checkpointId);
+    if (!snapshot) {
+        return error("/rewind", [`Could not read checkpoint ${found.checkpointId}.`]);
+    }
+
+    const dropped = session.turnCount - snapshot.turnCount;
+    const banked = dropped > 0 ? persistence.saveCheckpoint(snapshotOf(session)) : null;
+
+    session.restore(snapshot);
+    ctx.restoreConversation(snapshot.items);
+
+    return info("Rewound to checkpoint", [
+        titleOf(snapshot.title),
+        row("checkpoint id", snapshot.checkpointId),
+        row("turns", String(snapshot.turnCount)),
+        row("saved", when(snapshot.updatedAt)),
+        ...(banked
+            ? ["", `The ${count(dropped, "turn")} you rewound past were checkpointed first;`, "find them at the top of /checkpoints."]
+            : []),
+        "",
+        "Only the conversation was rewound. Files the agent already wrote are",
+        "still on disk — revert those yourself if you need to.",
     ]);
 };
 
@@ -378,6 +428,9 @@ export const runSlashCommand = async (
 
         case "checkpoints":
             return listCheckpointsCommand(ctx);
+
+        case "rewind":
+            return rewindCommand(args, ctx);
 
         case "exit":
             ctx.exit();

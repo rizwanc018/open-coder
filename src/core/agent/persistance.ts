@@ -65,11 +65,11 @@ export class PersistenceManager {
         renameSync(tmp, path);
     }
 
-    private _read(path: string): SessionSnapshot | null {
+    private _read<T extends SessionSnapshot = SessionSnapshot>(path: string): T | null {
         if (!pathExists(path)) return null;
 
         try {
-            return JSON.parse(readFileSync(path, "utf-8")) as SessionSnapshot;
+            return JSON.parse(readFileSync(path, "utf-8")) as T;
         } catch {
             debug(`persistence: ignoring unreadable snapshot ${path}`);
             return null;
@@ -97,6 +97,14 @@ export class PersistenceManager {
 
     loadSession(sessionId: string): SessionSnapshot | null {
         const snapshot = this._read(join(this._sessionsDir, `${sessionId}.json`));
+        if (!snapshot) return null;
+
+        return { ...snapshot, items: settleToolCalls(snapshot.items, UNFINISHED_RESULT) };
+    }
+
+    loadCheckpoint(sessionId: string, checkpointId: string): CheckpointSnapshot | null {
+        const path = join(this._checkpointsDir, sessionId, `${checkpointId}.json`);
+        const snapshot = this._read<CheckpointSnapshot>(path);
         if (!snapshot) return null;
 
         return { ...snapshot, items: settleToolCalls(snapshot.items, UNFINISHED_RESULT) };
