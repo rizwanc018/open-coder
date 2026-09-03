@@ -8,6 +8,7 @@ import data from "../../../logs/message.json";
 import type { CompactionState } from "../components/CompactionStatusView";
 import type { ParsedCommand } from "../command";
 import { runSlashCommand } from "../commandRunner";
+import { toUIMessages } from "../transcript";
 
 export type TextMessage = {
     id: number;
@@ -28,7 +29,6 @@ export type ToolMessage = {
     diff?: string;
     shell?: ShellExecution;
 };
-
 
 export type SystemMessage = {
     id: number;
@@ -205,12 +205,7 @@ export function useAgent(config: Config, onExit: () => void) {
             } finally {
                 setMessages((prev) =>
                     prev
-                        // Drop assistant bubbles that never received text (e.g. a turn
-                        // that produced only tool calls).
                         .filter((m) => !(m.role === "assistant" && m.content === ""))
-                        // A tool row only leaves "running" on `tool_call_complete`. An
-                        // interrupt or a throw skips that event, so without this sweep
-                        // the row spins forever while the agent is long since stopped.
                         .map((m) =>
                             m.role === "tool" && m.status === "running"
                                 ? { ...m, status: "interrupted" as const }
@@ -240,6 +235,10 @@ export function useAgent(config: Config, onExit: () => void) {
                     setMessages([]);
                     setCompaction({ status: "idle" });
                 },
+                restoreConversation: (items) => {
+                    setMessages(toUIMessages(items, () => ++nextId));
+                    setCompaction({ status: "idle" });
+                },
                 exit: () => {
                     (cancel(), onExit());
                 },
@@ -247,7 +246,12 @@ export function useAgent(config: Config, onExit: () => void) {
 
             if (!output) return;
 
-            setMessages((prev) => [...prev, { id: ++nextId, role: "system", ...output }]);
+            const banner: SystemMessage = { id: ++nextId, role: "system", ...output };
+
+            const isRestore =
+                parsed.kind === "known" && parsed.command.name === "resume" && output.level === "info";
+
+            setMessages((prev) => (isRestore ? [banner, ...prev] : [...prev, banner]));
         },
         [config],
     );

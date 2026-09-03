@@ -17,6 +17,9 @@ export interface CompactionPlan {
     tailTokens: number;
 }
 
+/** Opens the synthetic user message compaction leaves behind. Exported so a restored transcript can recognise it instead of rendering the whole blob. */
+export const COMPACTION_MARKER = "# Context Restoration (Previous Session Compacted)";
+
 export const INTERRUPTED_RESULT = "[Interrupted by the user before this tool ran.]";
 export const UNFINISHED_RESULT = "[This tool never reported a result; the session ended first.]";
 
@@ -109,6 +112,14 @@ export class ContextManager {
         this.latestUsage = EMPTY_USAGE;
     }
 
+
+    restore(items: MessageItem[], totalUsage: TokenUsage, title: string | null): void {
+        this._messages = settleToolCalls(items, UNFINISHED_RESULT);
+        this._title = title;
+        this.totalUsage = totalUsage;
+        this.latestUsage = { ...EMPTY_USAGE, totalTokens: this.getTokenCount() };
+    }
+
     recordUsage(usage: TokenUsage): void {
         this.latestUsage = usage;
         this.totalUsage = addUsage(this.totalUsage, usage);
@@ -199,7 +210,7 @@ export class ContextManager {
         const tokensBefore = this._messageTokens();
         const tail = this._messages.slice(plan.tailStart);
 
-        const continuation = `# Context Restoration (Previous Session Compacted)
+        const continuation = `${COMPACTION_MARKER}
 
 The earlier part of this conversation was compacted because it hit the context limit. Below is a summary of that work.
 

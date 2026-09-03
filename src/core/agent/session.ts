@@ -10,6 +10,7 @@ import { ChatCompactor } from "../context/compaction";
 import { ApprovalManager } from "../safety/approval";
 import { HookManager } from "../hooks/hooks";
 import { LoopDetector } from "./loopDetector";
+import type { SessionSnapshot } from "./persistance";
 
 export class Session {
     readonly _client: LLMClient | null;
@@ -83,6 +84,15 @@ export class Session {
     setApprovalPolicy(policy: ApprovalPolicy): void {
         this._config.approval = policy;
         this.approvals.policy = policy;
+    }
+
+    restore(snapshot: SessionSnapshot): void {
+        this.contextManager.restore(snapshot.items, snapshot.totalUsage, snapshot.title);
+        this.loopDetector.clear();
+        this.sessionId = snapshot.sessionId;
+        this.createdAt = new Date(snapshot.createdAt);
+        this.updatedAt = new Date(snapshot.updatedAt);
+        this.turnCount = snapshot.turnCount;
     }
 
     reset(): void {

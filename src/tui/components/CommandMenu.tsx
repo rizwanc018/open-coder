@@ -7,7 +7,7 @@ type CommandMenuProps = {
     selectedIndex: number;
 };
 
-const NAME_WIDTH = 20;
+const NAME_WIDTH = 27;
 
 export function CommandMenu({ commands, selectedIndex }: CommandMenuProps) {
     return (

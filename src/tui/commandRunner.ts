@@ -1,5 +1,6 @@
-import { PersistenceManager, snapshotOf } from "../core/agent/persistance";
+import { PersistenceManager, snapshotOf, type SessionSummary } from "../core/agent/persistance";
 import type { Session } from "../core/agent/session";
+import type { MessageItem } from "../core/context/types";
 import { APPROVAL_POLICIES, type ApprovalPolicy, type Config } from "../core/config/config";
 import { todos } from "../core/tools/built-in/todo";
 import type { AnyTool } from "../core/tools/types";
@@ -16,6 +17,7 @@ export type CommandContext = {
     ensureSession: () => Promise<Session>;
     config: Config;
     clearConversation: () => void;
+    restoreConversation: (items: MessageItem[]) => void;
     exit: () => void;
 };
 
@@ -194,6 +196,64 @@ const listSessionsCommand = (): CommandOutput => {
     return info("Saved sessions", lines);
 };
 
+/**
+ * Accepts what the user is actually looking at: a row number from `/sessions`, a
+ * session id (or an unambiguous prefix of one), or nothing at all for the most
+ * recent. A bare integer is read as a row number first — nobody types a UUID.
+ */
+const findSession = (args: string, sessions: SessionSummary[]): SessionSummary | "ambiguous" | null => {
+    if (!args) return sessions[0] ?? null;
+
+    if (/^\d+$/.test(args)) {
+        const row = sessions[Number(args) - 1];
+        if (row) return row;
+    }
+
+    const matches = sessions.filter((session) => session.sessionId.startsWith(args.toLowerCase()));
+    if (matches.length > 1) return "ambiguous";
+    return matches[0] ?? null;
+};
+
+const resumeCommand = async (args: string, ctx: CommandContext): Promise<CommandOutput> => {
+    const persistence = new PersistenceManager();
+    const sessions = persistence.listSessions();
+
+    if (sessions.length === 0) {
+        return error("/resume", ["No saved sessions. Save the current one with /save."]);
+    }
+
+    const found = findSession(args, sessions);
+    if (found === "ambiguous") {
+        return error("/resume", [`More than one session id starts with "${args}".`]);
+    }
+    if (!found) {
+        return error("/resume", [`No session matches "${args}".`, "", "List them with /sessions."]);
+    }
+
+    const snapshot = persistence.loadSession(found.sessionId);
+    if (!snapshot) {
+        return error("/resume", [`Could not read session ${found.sessionId}.`]);
+    }
+
+    const session = await ctx.ensureSession();
+
+    // Resuming discards whatever is in the window. Banking the outgoing session
+    // first means the only way to lose work is to ask for it explicitly, via /clear.
+    const replaced = session.turnCount > 0 && session.sessionId !== snapshot.sessionId;
+    if (replaced) persistence.saveSession(snapshotOf(session));
+
+    session.restore(snapshot);
+    ctx.restoreConversation(snapshot.items);
+
+    return info("Session resumed", [
+        titleOf(snapshot.title),
+        row("session id", snapshot.sessionId),
+        row("turns", String(snapshot.turnCount)),
+        row("saved", when(snapshot.updatedAt)),
+        ...(replaced ? ["", "The session you were in was saved first; find it in /sessions."] : []),
+    ]);
+};
+
 const todosCommand = (): CommandOutput => {
     const items = todos.list();
 
@@ -263,6 +323,9 @@ export const runSlashCommand = async (
 
         case "sessions":
             return listSessionsCommand();
+
+        case "resume":
+            return resumeCommand(args, ctx);
 
         case "exit":
             ctx.exit();
