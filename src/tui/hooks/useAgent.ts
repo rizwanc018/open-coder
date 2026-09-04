@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Agent } from "../../core/agent/agent";
 import type { Config } from "../../core/config/config";
-import { debug, writelog } from "../../shared/debug";
 import { toUnifiedDiff } from "../../core/utils/diff";
 import type { ShellExecution, ToolConfirmation } from "../../core/tools/types";
-import data from "../../../logs/message.json";
 import type { CompactionState } from "../components/CompactionStatusView";
 import type { ParsedCommand } from "../command";
 import { runSlashCommand } from "../commandRunner";
@@ -85,11 +83,6 @@ export function useAgent(config: Config, onExit: () => void) {
             agentRef.current = null;
         };
     }, []);
-
-    // Debug
-    useEffect(() => {
-        writelog("w", "logs/messages.log", messages);
-    }, [messages]);
 
     const sendMessage = useCallback(
         async (text: string) => {
