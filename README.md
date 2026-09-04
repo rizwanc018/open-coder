@@ -17,7 +17,7 @@ Features: 11 built-in tools, custom tool discovery, sub-agents, an approval laye
 ## Install
 
 ```bash
-bun install -g open-coder     # or: npm install -g open-coder
+bun install -g @rizwanc018/open-coder     # or: npm install -g @rizwanc018/open-coder
 ```
 
 Then run it in any project:
@@ -33,7 +33,7 @@ somewhere unusual, point at it with `OPEN_CODER_BUN=/path/to/bun`.
 No install:
 
 ```bash
-bunx open-coder
+bunx @rizwanc018/open-coder
 ```
 
 ## Configuration

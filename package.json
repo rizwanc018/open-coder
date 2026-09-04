@@ -1,6 +1,6 @@
 {
-  "name": "open-coder",
-  "version": "1.0.0",
+  "name": "@rizwanc018/open-coder",
+  "version": "0.1.0",
   "description": "A terminal-based AI coding agent: streaming TUI, tool calling, sub-agents, approvals, and persistent sessions.",
   "type": "module",
   "license": "MIT",
@@ -24,6 +24,9 @@
   ],
   "bin": {
     "open-coder": "bin/open-coder.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "module": "src/cli.tsx",
   "files": [
