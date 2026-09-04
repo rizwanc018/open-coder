@@ -1,6 +1,6 @@
 {
   "name": "@rizwanc018/open-coder",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A terminal-based AI coding agent: streaming TUI, tool calling, sub-agents, approvals, and persistent sessions.",
   "type": "module",
   "license": "MIT",
