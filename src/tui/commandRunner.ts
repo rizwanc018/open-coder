@@ -1,7 +1,7 @@
 import { PersistenceManager, snapshotOf, type SessionSummary } from "../core/agent/persistance";
 import type { Session } from "../core/agent/session";
 import type { MessageItem } from "../core/context/types";
-import { APPROVAL_POLICIES, type ApprovalPolicy, type Config } from "../core/config/config";
+import { APPROVAL_POLICIES, apiKeySource, type ApprovalPolicy, type Config } from "../core/config/config";
 import { todos } from "../core/tools/built-in/todo";
 import type { AnyTool } from "../core/tools/types";
 import { formatCommand, SLASH_COMMANDS, type ParsedCommand } from "./command";
@@ -36,8 +36,10 @@ const info = (title: string, lines: string[]): CommandOutput => ({ title, lines,
 const error = (title: string, lines: string[]): CommandOutput => ({ title, lines, level: "error" });
 
 const configLines = (config: Config): string[] => {
+    const keySource = apiKeySource(config);
     return [
         row("model", config.model.name),
+        row("api key", keySource ? `set (${keySource})` : "missing"),
         row("temperature", String(config.model.temperature)),
         row("context window", `${num(config.model.contextWindow)} tokens`),
         row("approval", config.approval),

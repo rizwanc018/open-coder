@@ -22,7 +22,7 @@ export class LLMClient {
     }
 
     private _getClient(): OpenRouter {
-        this._client ??= new OpenRouter({ apiKey: apiKey() });
+        this._client ??= new OpenRouter({ apiKey: apiKey(this._config) });
         return this._client;
     }
 

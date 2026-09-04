@@ -1,11 +1,48 @@
 {
   "name": "open-coder",
-  "module": "src/index.tsx",
+  "version": "1.0.0",
+  "description": "A terminal-based AI coding agent: streaming TUI, tool calling, sub-agents, approvals, and persistent sessions.",
   "type": "module",
-  "private": true,
+  "license": "MIT",
+  "author": "rizwanc018",
+  "homepage": "https://github.com/rizwanc018/open-coder#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rizwanc018/open-coder.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rizwanc018/open-coder/issues"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "cli",
+    "tui",
+    "coding-agent",
+    "openrouter",
+    "bun"
+  ],
+  "bin": {
+    "open-coder": "bin/open-coder.mjs"
+  },
+  "module": "src/cli.tsx",
+  "files": [
+    "bin",
+    "src",
+    "tsconfig.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18",
+    "bun": ">=1.2.0"
+  },
   "scripts": {
-    "dev": "bun run --watch src/tui/App.tsx",
-    "test": "bun test"
+    "dev": "bun run --watch src/cli.tsx",
+    "start": "bun run src/cli.tsx",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run typecheck"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -18,7 +55,6 @@
     "@openrouter/sdk": "^0.13.43",
     "@opentui/core": "^0.4.3",
     "@opentui/react": "^0.4.3",
-    "add": "^2.0.6",
     "gpt-tokenizer": "^3.4.0",
     "react": "^19.2.7",
     "zod": "^4.4.3"

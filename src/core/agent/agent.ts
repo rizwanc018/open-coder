@@ -20,7 +20,9 @@ export class Agent {
         }
     }
 
-    static async create(config: Config, confirmationCallback: ConfirmationCallback): Promise<Agent> {
+    // Optional to match the constructor: sub-agents run without a TUI to prompt in,
+    // and ApprovalManager.requestConfirmation fails closed when there is no callback.
+    static async create(config: Config, confirmationCallback?: ConfirmationCallback): Promise<Agent> {
         return new Agent(await Session.create(config), confirmationCallback);
     }
 

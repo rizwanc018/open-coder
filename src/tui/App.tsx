@@ -1,11 +1,8 @@
-import { createCliRenderer } from "@opentui/core";
-import { createRoot, useKeyboard } from "@opentui/react";
+import { useKeyboard } from "@opentui/react";
 import { MessageList } from "./components/MessageList";
 import { Inputbar } from "./components/Inputbar";
 import { useAgent } from "./hooks/useAgent";
-import { loadConfig } from "../core/config/configLoader";
-import { validateConfig, type Config } from "../core/config/config";
-import { errorMessage } from "../core/utils/error";
+import { type Config } from "../core/config/config";
 import { ApprovalDialog } from "./components/ApprovalDialog";
 import { useTransientNotice } from "./hooks/useTransientNotice";
 import { parseCommand } from "./command";
@@ -17,7 +14,7 @@ type AppProps = {
 
 const EXIT_HINT = "Type /exit to quit.";
 
-const App = ({ config, onExit }: AppProps) => {
+export const App = ({ config, onExit }: AppProps) => {
     const {
         messages,
         isWorking,
@@ -67,38 +64,3 @@ const App = ({ config, onExit }: AppProps) => {
         </box>
     );
 };
-
-let config: Config;
-try {
-    config = loadConfig();
-} catch (error) {
-    console.error(errorMessage(error));
-    process.exit(1);
-}
-
-const configErrors = validateConfig(config);
-if (configErrors.length > 0) {
-    console.error(configErrors.map((error) => `- ${error}`).join("\n"));
-    process.exit(1);
-}
-
-const renderer = await createCliRenderer({
-    exitOnCtrlC: false,
-});
-
-const root = createRoot(renderer);
-
-let shuttingDown = false;
-
-const shutdown = () => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    try {
-        root.unmount();
-        renderer.destroy();
-    } finally {
-        process.exit(0); 
-    }
-};
-
-root.render(<App config={config} onExit={shutdown} />);

@@ -1,5 +1,6 @@
 import { statSync } from "node:fs";
 import z from "zod";
+import { userConfigFile } from "./pathLoader";
 
 export const APPROVAL_POLICIES = ["on-request", "auto", "auto-edit", "never", "yolo"] as const;
 export type ApprovalPolicy = (typeof APPROVAL_POLICIES)[number];
@@ -45,6 +46,7 @@ const hookConfigSchema = z
 
 export const configSchema = z.object({
     model: modelConfigSchema,
+    apiKey: z.string().nullable().default(null),
     cwd: z.string().default(() => process.cwd()),
     maxTurns: z.number().int().positive().default(150),
     developerInstructions: z.string().nullable().default(null),
@@ -61,16 +63,30 @@ export type Config = z.infer<typeof configSchema>;
 export type ShellEnvironmentPolicy = z.infer<typeof shellEnvironmentPolicySchema>;
 export type HookConfig = z.infer<typeof hookConfigSchema>;
 
-export function apiKey(): string | undefined {
-    return process.env.OPENROUTER_API_KEY;
+export type ApiKeySource = "environment" | "config file";
+
+/**
+ * Resolution order: environment first (works for CI and one-off overrides), then
+ * the user config file. Under Bun a project `.env` is loaded into the environment
+ * automatically, so it keeps working for development from inside a checkout.
+ */
+export function apiKey(config: Config): string | undefined {
+    return process.env.OPENROUTER_API_KEY?.trim() || config.apiKey?.trim() || undefined;
+}
+
+export function apiKeySource(config: Config): ApiKeySource | null {
+    if (process.env.OPENROUTER_API_KEY?.trim()) return "environment";
+    if (config.apiKey?.trim()) return "config file";
+    return null;
 }
 
 export function validateConfig(config: Config): string[] {
     const errors: string[] = [];
 
-    if (!apiKey()?.trim()) {
+    if (!apiKey(config)) {
         errors.push(
-            "No API key found. Set the Openrouter api key in .env file {OPENROUTER_API_KEY=<api key> }.",
+            "No OpenRouter API key found.\n Either set OPENROUTER_API_KEY in your environment, " +
+                `or add {"apiKey": "sk-or-..."} to ${userConfigFile()}`,
         );
     }
 

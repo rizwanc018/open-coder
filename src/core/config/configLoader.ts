@@ -1,15 +1,14 @@
 import { join, resolve } from "node:path";
 import { statSync, readFileSync } from "node:fs";
-import { userConfigDir, userDataDir } from "./pathLoader";
+import { APP_NAME, CONFIG_FILE_NAME, userConfigDir, userConfigFile, userDataDir } from "./pathLoader";
 import { ConfigError, errorMessage } from "../utils/error";
 import { configSchema, type Config } from "./config";
 
-const CONFIG_FILE_NAME = "config.json";
 const AGENT_MD_FILE = "AGENT.md";
 
-export const getConfigDir = () => userConfigDir("open-coder");
-export const getDataDir = () => userDataDir("open-coder");
-const getSystemConfigFile = () => join(getConfigDir(), CONFIG_FILE_NAME);
+export const getConfigDir = () => userConfigDir(APP_NAME);
+export const getDataDir = () => userDataDir(APP_NAME);
+const getSystemConfigFile = () => userConfigFile();
 const getProjectConfigFile = (cwd: string) => {
     const configFile = join(resolve(cwd), ".open-coder", CONFIG_FILE_NAME);
     return isFile(configFile) ? configFile : null;
@@ -88,7 +87,17 @@ export const loadConfig = (cwd?: string): Config => {
     const projectConfigFile = getProjectConfigFile(workingDir);
     if (projectConfigFile) {
         try {
-            configData = merge(configData, parseJson(projectConfigFile));
+            const projectData = parseJson(projectConfigFile);
+            // A project config lives inside someone's repo and will get committed.
+            // Never let it be the place an API key is kept.
+            if ("apiKey" in projectData) {
+                delete projectData.apiKey;
+                console.warn(
+                    `Ignoring "apiKey" in ${projectConfigFile}: keep secrets in ${getSystemConfigFile()} ` +
+                        "or the OPENROUTER_API_KEY environment variable, not in a file inside your repo.",
+                );
+            }
+            configData = merge(configData, projectData);
         } catch (error) {
             console.warn(`Skipping invalid project config: ${errorMessage(error)}`);
         }

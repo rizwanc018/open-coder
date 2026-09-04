@@ -1,6 +1,8 @@
 import os from 'node:os';
 import path from 'node:path';
 
+export const APP_NAME = 'open-coder';
+export const CONFIG_FILE_NAME = 'config.json';
 
 function appDirs(appName: string): { config: string; data: string } {
   const home = os.homedir();
@@ -34,4 +36,13 @@ export function userConfigDir(appName: string): string {
 
 export function userDataDir(appName: string): string {
   return appDirs(appName).data;
+}
+
+/**
+ * The one config file that follows the user across projects. Secrets belong here
+ * and nowhere else — a project's `.open-coder/config.json` is inside a repo and
+ * will eventually get committed.
+ */
+export function userConfigFile(): string {
+  return path.join(userConfigDir(APP_NAME), CONFIG_FILE_NAME);
 }
