@@ -7,9 +7,12 @@ import { CommandMenu } from "./CommandMenu";
 
 export const TEXTAREA_KEY_BINDINGS: KeyBinding[] = [
     { name: "return", action: "submit" },
-    { name: "return", shift: true, action: "newline" }, // kitty-capable terminals only
-    { name: "return", meta: true, action: "newline" }, // alt+enter — works everywhere
+    { name: "return", shift: true, action: "newline" },
+    { name: "return", meta: true, action: "newline" },
 ];
+
+const MIN_ROWS = 1;
+const MAX_ROWS = 5;
 
 type InputProps = {
     onSubmit: (text: string) => void;
@@ -23,15 +26,28 @@ export const Inputbar = ({ onSubmit, disabled = false, notice = null }: InputPro
     const [prefix, setPrefix] = useState<string | null>(null);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [dismissed, setDismissed] = useState(false);
+    const [rows, setRows] = useState(MIN_ROWS);
 
     const matches = prefix === null ? [] : filterCommands(prefix);
     const menuOpen = !disabled && !dismissed && matches.length > 0;
     const selected = matches[selectedIndex];
 
+    const syncRows = () => {
+        const lines = textareaRef.current?.editorView.getTotalVirtualLineCount() ?? MIN_ROWS;
+        setRows(Math.max(MIN_ROWS, Math.min(MAX_ROWS, lines)));
+    };
+
     const syncPrefix = () => {
         setPrefix(commandPrefix(textareaRef.current?.plainText ?? ""));
         setSelectedIndex(0);
         setDismissed(false);
+        syncRows();
+    };
+
+    const reset = (textarea: TextareaRenderable) => {
+        textarea.clear();
+        setPrefix(null);
+        setRows(MIN_ROWS);
     };
 
     const handleSubmit = () => {
@@ -41,8 +57,7 @@ export const Inputbar = ({ onSubmit, disabled = false, notice = null }: InputPro
         const text = textarea.plainText.trim();
         if (!text) return;
 
-        textarea.clear();
-        setPrefix(null);
+        reset(textarea);
         onSubmit(text);
     };
 
@@ -51,8 +66,7 @@ export const Inputbar = ({ onSubmit, disabled = false, notice = null }: InputPro
         if (!textarea) return;
 
         if (run) {
-            textarea.clear();
-            setPrefix(null);
+            reset(textarea);
             onSubmit(`/${command.name}`);
             return;
         }
@@ -76,7 +90,6 @@ export const Inputbar = ({ onSubmit, disabled = false, notice = null }: InputPro
 
         if (!menuOpen || !selected) return;
 
- 
         switch (key.name) {
             case "up":
                 key.preventDefault();
@@ -124,7 +137,7 @@ export const Inputbar = ({ onSubmit, disabled = false, notice = null }: InputPro
                     <textarea
                         ref={textareaRef}
                         width="100%"
-                        height={1}
+                        height={rows}
                         focused={true}
                         placeholder={disabled ? "Working..." : "Ask anything... (/ for commands)"}
                         placeholderColor={theme.muted}
