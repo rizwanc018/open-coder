@@ -59,7 +59,12 @@ export const App = ({ config, onExit }: AppProps) => {
     return (
         <box flexDirection="column" width="100%" height="100%">
             <MessageList messages={messages} isWorking={isWorking} compaction={compaction} />
-            <Inputbar onSubmit={handleSubmit} disabled={isWorking} notice={notice} />
+            <Inputbar
+                onSubmit={handleSubmit}
+                disabled={isWorking}
+                focused={!approvalRequest}
+                notice={notice}
+            />
             {approvalRequest && <ApprovalDialog confirmation={approvalRequest} onResolve={resolveApproval} />}
         </box>
     );

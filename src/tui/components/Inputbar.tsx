@@ -17,10 +17,11 @@ const MAX_ROWS = 5;
 type InputProps = {
     onSubmit: (text: string) => void;
     disabled?: boolean;
+    focused?: boolean;
     notice?: string | null;
 };
 
-export const Inputbar = ({ onSubmit, disabled = false, notice = null }: InputProps) => {
+export const Inputbar = ({ onSubmit, disabled = false, focused = true, notice = null }: InputProps) => {
     const textareaRef = useRef<TextareaRenderable>(null);
 
     const [prefix, setPrefix] = useState<string | null>(null);
@@ -138,7 +139,7 @@ export const Inputbar = ({ onSubmit, disabled = false, notice = null }: InputPro
                         ref={textareaRef}
                         width="100%"
                         height={rows}
-                        focused={true}
+                        focused={focused}
                         placeholder={disabled ? "Working..." : "Ask anything... (/ for commands)"}
                         placeholderColor={theme.muted}
                         keyBindings={TEXTAREA_KEY_BINDINGS}
