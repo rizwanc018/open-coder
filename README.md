@@ -28,7 +28,7 @@ Built with [Bun](https://bun.sh), [OpenTUI](https://github.com/sst/opentui), and
 ## Install
 
 ```bash
-bun install -g @rizwanc018/open-coder     # or: npm install -g @rizwanc018/open-coder
+bun install -g @rizwanc018/open-coder   
 ```
 
 Or using npm:
